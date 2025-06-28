@@ -1,11 +1,9 @@
 experiments:
-  - name: "Steane Code - Custom Full"
-    num_samples: 1
-    backends: ["custom_full"] # custom_line, custom_grid, custom_cube, custom_full
-    backend_sizes: [700]
-    distances: [27]
-    cycles: 2
-    codes: [ "steane"]
-    error_types: [sd6]
-    error_probabilities: [0.005] 
+  - name: "DQC_26.06"
+    num_samples: 1000
+    backends: ["real_flamingo"] # custom_line, custom_grid, custom_cube, custom_full
+    #backends_sizes: [300, 350, 400, 450, 500]
+    codes: ["surface", "hh", "gross", "color", "steane", "bacon"]
+    error_types: ["real_flamingo"]
+    #error_probabilities: [0.004, 0.002, 0.008] 
     decoders: ["bposd"] # mwpm
