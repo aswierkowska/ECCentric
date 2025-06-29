@@ -16,8 +16,8 @@ class FakeInfleqtionNoShuttlingBackend(BackendV2):
     def __init__(self, extended=False):
         super().__init__(name="FakeInfleqtion", backend_version=2)
         if extended:
-            self.rows = 16
-            self.columns = 24
+            self.rows = 12
+            self.columns = 18
         else:
             # rescaled 3x each side
             self.rows = 4
@@ -77,4 +77,8 @@ class FakeInfleqtionNoShuttlingBackend(BackendV2):
 if __name__ == "__main__":
     backend = FakeInfleqtionNoShuttlingBackend()
     plot_coupling_map(backend.coupling_map.size(), None, backend.coupling_map.get_edges(), filename="infleqtion.png")
+<<<<<<< HEAD
     print(backend.coupling_map)
+=======
+    print(backend.coupling_map)
+>>>>>>> 7d09dc4 (Add shut-less Infleqtion)
