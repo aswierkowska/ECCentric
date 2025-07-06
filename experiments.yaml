@@ -1,11 +1,9 @@
 experiments:
-  - name: "Steane Code - Custom Full"
-    num_samples: 1
+  - name: "test"
+    num_samples: 100
     backends: ["custom_full"] # custom_line, custom_grid, custom_cube, custom_full
-    backend_sizes: [700]
-    distances: [27]
-    cycles: 2
-    codes: [ "steane"]
-    error_types: [sd6]
-    error_probabilities: [0.005] 
+    backends_sizes: [300]
+    codes: ["surface"]#, "hh", "gross", "color", "steane", "bacon"]
+    error_types: ["modsi1000"]
+    error_probabilities: [0.004, 0.002] 
     decoders: ["bposd"] # mwpm
