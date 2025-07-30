@@ -145,6 +145,10 @@ if __name__ == "__main__":
         layout_methods = experiment.get("layout_methods", [None])
         routing_methods = experiment.get("routing_methods", [None])
         translating_methods = experiment.get("translating_methods", [None])
+        error_ranges = experiment.get("error_ranges", [None])
+
+        if error_ranges is not None:
+            error_probabilities = [ i/error_ranges[3] for i in range(error_ranges[0], error_ranges[1], error_ranges[2])]
 
         setup_experiment_logging(experiment_name)
         save_experiment_metadata(experiment, experiment_name)
