@@ -77,8 +77,3 @@ class FakeInfleqtionNoShuttlingBackend(BackendV2):
 if __name__ == "__main__":
     backend = FakeInfleqtionNoShuttlingBackend()
     plot_coupling_map(backend.coupling_map.size(), None, backend.coupling_map.get_edges(), filename="infleqtion.png")
-<<<<<<< HEAD
-    print(backend.coupling_map)
-=======
-    print(backend.coupling_map)
->>>>>>> 7d09dc4 (Add shut-less Infleqtion)
