@@ -7,13 +7,14 @@ class FlamingoNoise(NoiseModel):
     @staticmethod
     def get_noise(
         qt: QubitTracking,
-        backend: FakeIBMFlamingo
+        backend: FakeIBMFlamingo,
+        scaling: int = 1
     ) -> 'NoiseModel':
         return NoiseModel(
-            sq=0.00025,
-            tq=0.002,
-            measure=0.01,
-            remote=0.03,
+            sq=0.00025 / scaling,
+            tq=0.002 / scaling,
+            measure=0.01 / scaling,
+            remote=0.03 / scaling,
             gate_times={
                 "SQ": 50 * 1e-9,
                 "TQ": 70 * 1e-9,

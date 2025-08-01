@@ -8,7 +8,7 @@ from .heron_noise import HeronNoise
 from backends import *
 from typing import Union
 
-def get_noise_model(error_type: str, qt: QubitTracking, p: float = None, backend: Union[FakeIBMFlamingo, FakeInfleqtionBackend] = None):
+def get_noise_model(error_type: str, qt: QubitTracking, p: float = None, error_scale:int = 1, backend: Union[FakeIBMFlamingo, FakeInfleqtionBackend] = None):
     if p:
         if error_type == "sd6":
             return ArtificialNoise.SD6(p, qt)
@@ -29,7 +29,7 @@ def get_noise_model(error_type: str, qt: QubitTracking, p: float = None, backend
     if error_type == "real_willow":
         return WillowNoise.get_noise(qt)
     elif error_type == "real_flamingo" and backend:
-        return FlamingoNoise.get_noise(qt, backend)
+        return FlamingoNoise.get_noise(qt, backend, error_scale)
     elif error_type == "real_infleqtion" and backend:
         return InfleqtionNoise.get_noise(qt, backend)
     elif error_type == "real_apollo":
