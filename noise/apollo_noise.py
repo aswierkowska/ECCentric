@@ -42,8 +42,4 @@ class ApolloNoise(NoiseModel):
     #            "REMOTE": 0,
     #        },
     #        qt=qt
-<<<<<<< HEAD
     #    )
-=======
-    #    )
->>>>>>> 33dfddc (Update apollo)
