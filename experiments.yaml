@@ -3,7 +3,7 @@ experiments:
     num_samples: 100000
     backends: ["custom_full"] # custom_line, custom_grid, custom_cube, custom_full
     backends_sizes: [300]
-    codes: ["steane"]#["surface", "hh", "gross", "color", "steane", "bacon"]
+    codes: ["steane"]
     error_types: ["modsi1000"]
     error_probabilities: [0.002, 0.004] 
     decoders: ["bposd"] # mwpm

@@ -8,19 +8,14 @@
         300
     ],
     "codes": [
-        "surface",
-        "hh",
-        "gross",
-        "color",
-        "steane",
-        "bacon"
+        "steane"
     ],
     "error_types": [
         "modsi1000"
     ],
     "error_probabilities": [
-        0.004,
-        0.002
+        0.002,
+        0.004
     ],
     "decoders": [
         "bposd"
