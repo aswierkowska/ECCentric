@@ -310,6 +310,79 @@ def generate_technology_plot(path):
     plt.savefig("data/technologies.pdf", format="pdf")
     plt.close()
 
+def generate_dqc_plot(path):
+    datasets = [
+        ("DQC_LOWER", "DQC Full Size"),
+        ("DQC_1_QPU_LOWER", "DQC 1 QPU Size")
+    ]
+    dfs = []
+
+    for folder, label in datasets:
+        tech_path = os.path.join(path, folder, "results.csv")
+        df = pd.read_csv(tech_path)
+        df["backend"] = df["backend"].replace(backend_rename_map)
+        df["code"] = df["code"].apply(lambda x: code_rename_map.get(x.lower(), x.capitalize()))
+        df["dataset"] = label
+        dfs.append(df)
+
+    df = pd.concat(dfs, ignore_index=True)
+
+    # Use codes as X-axis
+    codes = sorted(df["code"].unique())
+    datasets_labels = [label for _, label in datasets]
+
+    df["code"] = pd.Categorical(df["code"], categories=codes, ordered=True)
+    df["dataset"] = pd.Categorical(df["dataset"], categories=datasets_labels, ordered=True)
+
+    sns.set(style="whitegrid")
+    plt.figure(figsize=(14, 6))
+
+    x = np.arange(len(codes))
+    bar_width = 0.35  # narrower bars for side-by-side plotting
+
+    # Loop through datasets (two bars per code)
+    for j, dataset_label in enumerate(datasets_labels):
+        means = []
+        for code in codes:
+            subset = df[(df["code"] == code) & (df["dataset"] == dataset_label)]
+            if not subset.empty:
+                means.append(subset["corrected_error_rate"].mean())  # mean over backends
+            else:
+                means.append(0)
+
+        plt.bar(
+            x + (j - 0.5) * bar_width,
+            means,
+            width=bar_width,
+            color=code_palette[0 % len(code_palette)] if j == 0 else code_palette[1 % len(code_palette)],
+            hatch=code_hatches[j % len(code_hatches)],
+            edgecolor="black",
+            label=dataset_label
+        )
+
+    plt.xticks(x, codes, rotation=45, ha="right")
+    plt.ylabel("Logical Error Rate (Log Scale)")
+    plt.title("Logical Error Rate by QEC Code and Patch Size")
+    plt.yscale("log")
+
+    plt.legend(
+        title="Patch Size",
+        loc='lower center',
+        bbox_to_anchor=(0.5, -0.4),
+        ncol=2,
+        fontsize='small',
+        frameon=False
+    )
+
+    plt.text(-0.05, 1.05, 'Lower is better ↓', transform=plt.gca().transAxes,
+             fontsize=10, fontweight='bold', va='top', ha='left')
+
+    plt.subplots_adjust(bottom=0.25)
+    os.makedirs("data", exist_ok=True)
+    plt.savefig("data/dqc.pdf", format="pdf")
+    plt.close()
+
+
 if __name__ == '__main__':
     size = "experiment_results/Size_full/results.csv"
     connectivity = "experiment_results/Connectivity_small/results.csv"
@@ -319,3 +392,4 @@ if __name__ == '__main__':
     generate_connectivity_plot(connectivity)
     generate_topology_plot(topology)
     generate_technology_plot(path)
+    generate_dqc_plot(path)
