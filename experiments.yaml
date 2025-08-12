@@ -1,9 +1,19 @@
 experiments:
-  - name: "Accumulate_errors_07.07_fixed"
+  - name: "DQC_1_QPU"
     num_samples: 1000
-    backends: ["custom_full"] # custom_line, custom_grid, custom_cube, custom_full
-    backends_sizes: [300]
+    backends: ["real_flamingo"] # custom_line, custom_grid, custom_cube, custom_full
     codes: ["surface", "hh", "gross", "color", "steane", "bacon"]
-    error_types: ["modsi1000"]
-    error_probabilities: [0.002, 0.004] 
+    error_types: ["real_flamingo"]
+    decoders: ["bposd"] # mwpm
+  - name: "DQC_1_QPU_LOWER"
+    num_samples: 1000
+    backends: ["real_flamingo"] # custom_line, custom_grid, custom_cube, custom_full
+    codes: ["surface", "hh", "gross", "color", "steane", "bacon"]
+    error_types: ["real_flamingo_lower"]
+    decoders: ["bposd"] # mwpm
+  - name: "DQC_LOWER"
+    num_samples: 1000
+    backends: ["real_flamingo"] # custom_line, custom_grid, custom_cube, custom_full
+    codes: ["surface", "hh", "gross", "color", "steane", "bacon"]
+    error_types: ["real_flamingo_lower"]
     decoders: ["bposd"] # mwpm

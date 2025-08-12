@@ -1,5 +1,6 @@
 from .willow_noise import WillowNoise
 from .flamingo_noise import FlamingoNoise
+from .flamingo_lower_noise import FlamingoLowerNoise
 from .apollo_noise import ApolloNoise
 from .infleqtion_noise import InfleqtionNoise
 from .artificial_noise import ArtificialNoise
@@ -30,6 +31,8 @@ def get_noise_model(error_type: str, qt: QubitTracking, p: float = None, backend
         return WillowNoise.get_noise(qt)
     elif error_type == "real_flamingo" and backend:
         return FlamingoNoise.get_noise(qt, backend)
+    elif error_type == "real_flamingo_lower" and backend:
+        return FlamingoLowerNoise.get_noise(qt, backend)
     elif error_type == "real_infleqtion" and backend:
         return InfleqtionNoise.get_noise(qt, backend)
     elif error_type == "real_apollo":

@@ -41,7 +41,14 @@ def run_experiment(
         backend = get_backend(backend_name, backend_size)
         print("Got backend")
         if d == None:
-            d = get_max_d(code_name, backend.coupling_map.size())
+            if "1_QPU" in experiment_name:
+                n = int(backend.coupling_map.size() / 3)
+                logging.info(
+                    f"{experiment_name} | Logical error rate for {code_name} with distance {d}, backend {backend_name}, considered size: {n}"
+                )
+            else:
+                n = backend.coupling_map.size()
+            d = get_max_d(code_name, n)
             print(f"Max distance for {code_name} on backend {backend_name} is {d}")
             if d < 3:
                 logging.info(
