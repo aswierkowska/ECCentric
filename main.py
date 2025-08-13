@@ -89,7 +89,7 @@ def run_experiment(
         
         raw_error = raw_error_rate(stim_circuit, num_samples) / num_samples
         idle_error = raw_error_rate(stim_circuit_idle, num_samples) / num_samples
-        corrected_error = decode(code_name, stim_circuit, num_samples, decoder, backend_name, error_type) / num_samples
+        corrected_error = decode(code_name, stim_circuit, num_samples, decoder, backend_name, error_type)
 
 
         result_data = {
