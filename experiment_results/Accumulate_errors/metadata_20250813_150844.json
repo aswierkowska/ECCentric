@@ -1,6 +1,6 @@
 {
     "name": "Accumulate_errors",
-    "num_samples": 100000,
+    "num_samples": 1000,
     "backends": [
         "custom_full"
     ],
@@ -8,14 +8,20 @@
         300
     ],
     "codes": [
-        "steane"
+        "steane",
+        "hh",
+        "surface",
+        "gross",
+        "color",
+        "bacon"
     ],
     "error_types": [
         "modsi1000"
     ],
     "error_probabilities": [
-        0.002,
-        0.004
+        0.004,
+        0.006,
+        0.008
     ],
     "decoders": [
         "bposd"

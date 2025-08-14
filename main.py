@@ -102,9 +102,9 @@ def run_experiment(
             "num_samples": num_samples,
             "error_type": error_type,
             "error_probability": error_prob,
-            "raw_error_rate": f"{raw_error:.5f}",
-            "idle_error_rate": f"{idle_error:.5f}",
-            "corrected_error_rate": f"{corrected_error:.5f}",
+            "raw_error_rate": f"{raw_error:.3f}",
+            "idle_error_rate": f"{idle_error:.3f}",
+            "corrected_error_rate": f"{corrected_error:.3f}",
         }
 
         with lock:
@@ -149,7 +149,7 @@ if __name__ == "__main__":
         lock = manager.Lock()
         # TODO: better handling case if distances and backends_sizes are both set
 
-        with ProcessPoolExecutor(max_workers=3) as executor:
+        with ProcessPoolExecutor() as executor:
             if "backends_sizes" in experiment and "distances" in experiment:
                 raise ValueError("Cannot set both backends_sizes and distances in the same experiment")
             if "distances" in experiment:
