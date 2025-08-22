@@ -1,7 +1,7 @@
-backend,backend_size,code,decoder,distance,cycles,num_samples,error_type,error_probability,raw_error_rate,idle_error_rate,corrected_error_rate
-real_flamingo,,hh,bposd,11,11,1000,real_flamingo_lower,,0.527000,0.000000,0.000418
-real_flamingo,,gross,bposd,12,12,1000,real_flamingo_lower,,1.000000,0.000000,0.000999
-real_flamingo,,steane,bposd,9,9,1000,real_flamingo_lower,,0.054000,0.000000,0.000060
-real_flamingo,,surface,bposd,13,13,1000,real_flamingo_lower,,0.516000,0.000000,0.000201
-real_flamingo,,bacon,bposd,19,19,1000,real_flamingo_lower,,0.473000,0.000000,0.000514
-real_flamingo,,color,bposd,13,13,1000,real_flamingo_lower,,0.529000,0.000000,0.000507
+backend,backend_size,code,decoder,distance,cycles,num_samples,error_type,error_probability,logical_error_rate,layout_method,routing_method,translating_method
+real_flamingo,,steane,bposd,9,9,1000,real_flamingo_lower,,0.075000,N/A,N/A,N/A
+real_flamingo,,hh,bposd,11,11,1000,real_flamingo_lower,,0.439000,N/A,N/A,N/A
+real_flamingo,,surface,bposd,13,13,1000,real_flamingo_lower,,0.301000,N/A,N/A,N/A
+real_flamingo,,color,bposd,13,13,1000,real_flamingo_lower,,0.503000,N/A,N/A,N/A
+real_flamingo,,bacon,bposd,19,19,1000,real_flamingo_lower,,0.502000,N/A,N/A,N/A
+real_flamingo,,gross,bposd,12,12,1000,real_flamingo_lower,,1.000000,N/A,N/A,N/A
