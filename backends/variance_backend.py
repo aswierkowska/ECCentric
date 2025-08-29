@@ -62,11 +62,11 @@ class VarianceBackend(BackendV2):
         for i in range(self._num_qubits):
             t1 = np.random.normal(190, variance, 1)
             t1 = np.clip(t1, 0, 570)
-            t1 = t1 * 1e-6
+            t1 = t1 * 1e-6 * 10 # 10 times better
             
             t2 = np.random.normal(130, variance, 1)
             t2 = np.clip(t2, 0, 390)
-            t2 = t2 * 1e-6
+            t2 = t2 * 1e-6 * 10 # 10 times better
         
             qubit_props.append(QubitProperties(t1=t1, t2=t2, frequency=5.0e9))
         
