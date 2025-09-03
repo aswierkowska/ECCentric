@@ -363,84 +363,106 @@ def generate_technology_plot(path):
     plt.close()
 
 def generate_dqc_plot(path):
-    datasets = [
-        ("DQC_LOWER", "DQC Full Size"),
-        ("DQC_1_QPU_LOWER", "DQC 1 QPU Size")
+    datasets_normal = [
+        ("DQC", "DQC Full Size"),
+        ("DQC_1_QPU", "DQC 1 QPU Size")
     ]
 
-    datasets = [
-        ("Nighthawk_lower", "Nighthawk Full Size"),
-        ("Loon_lower", "Loon Full Size")
+    datasets_lower = [
+        ("DQC_LOWER", "DQC Full Size (Lower)"),
+        ("DQC_1_QPU_LOWER", "DQC 1 QPU Size (Lower)")
     ]
+
+    all_dataset_groups = [
+        (datasets_normal, "Normal"),
+        (datasets_lower, "Lower")
+    ]
+
     dfs = []
 
-    for folder, label in datasets:
-        tech_path = os.path.join(path, folder, "results.csv")
-        df = pd.read_csv(tech_path)
-        df["backend"] = df["backend"].replace(backend_rename_map)
-        df["code"] = df["code"].apply(lambda x: code_rename_map.get(x.lower(), x.capitalize()))
-        df["dataset"] = label
-        dfs.append(df)
+    # Load all datasets (normal + lower)
+    for dataset_group, _ in all_dataset_groups:
+        for folder, label in dataset_group:
+            tech_path = os.path.join(path, folder, "results.csv")
+            df = pd.read_csv(tech_path)
+            df["backend"] = df["backend"].replace(backend_rename_map)
+            df["code"] = df["code"].apply(lambda x: code_rename_map.get(x.lower(), x.capitalize()))
+            df["dataset"] = label
+            dfs.append(df)
 
     df = pd.concat(dfs, ignore_index=True)
 
-    # Use codes as X-axis
-    codes = sorted(df["code"].unique())
-    datasets_labels = [label for _, label in datasets]
+    # 🚨 Exclude "Gross" completely
+    df = df[df["code"].str.lower() != "gross"]
 
+    # Codes
+    codes = sorted(df["code"].unique())
     df["code"] = pd.Categorical(df["code"], categories=codes, ordered=True)
-    df["dataset"] = pd.Categorical(df["dataset"], categories=datasets_labels, ordered=True)
 
     sns.set(style="whitegrid")
-    plt.figure(figsize=(15, 3))
+    fig, axes = plt.subplots(1, 2, figsize=(10, 3), sharey=True)  # shorter height
 
-    x = np.arange(len(codes))
-    bar_width = 0.35  # narrower bars for side-by-side plotting
+    bar_width = 0.1  # thinner bars
 
-    # Loop through datasets (two bars per code)
-    for j, dataset_label in enumerate(datasets_labels):
-        means = []
-        for code in codes:
-            subset = df[(df["code"] == code) & (df["dataset"] == dataset_label)]
-            if not subset.empty:
-                if j == 1 and code == "Gross":
-                    means.append(0)
-                else:
-                    means.append(subset["logical_error_rate"].mean())  # mean over backends
-            else:
-                means.append(0)
+    # One subplot per group (Normal, Lower)
+    for ax, (dataset_group, title_suffix) in zip(axes, all_dataset_groups):
+        datasets_labels = [label for _, label in dataset_group]
 
-        plt.bar(
-            x + (j - 0.5) * bar_width,
-            means,
-            width=bar_width,
-            color=code_palette[0 % len(code_palette)] if j == 0 else code_palette[1 % len(code_palette)],
-            hatch='/' if j == 0 else '\\',
-            edgecolor="black",
-            label=dataset_label
-        )
+        # Filter only the subset for this group
+        subdf = df[df["dataset"].isin(datasets_labels)].copy()
+        subdf["dataset"] = pd.Categorical(subdf["dataset"], categories=datasets_labels, ordered=True)
 
-    plt.xticks(x, codes, rotation=0, ha="center", fontsize=12)
-    plt.ylabel("Logical Error Rate (Log)", fontsize=12)
-    plt.title("Logical Error Rate by QEC Code and Patch Size", loc='left', fontweight='bold', fontsize=16)
-    plt.yscale("log")
+        x = np.arange(len(codes)) * 0.5
 
-    plt.legend(
-        title="Patch Size",
-        loc='lower center',
-        bbox_to_anchor=(0.5, -0.5),
-        ncol=2,
-        fontsize=12,
-        #frameon=False
+        for j, dataset_label in enumerate(datasets_labels):
+            means = []
+            for code in codes:
+                subset = subdf[(subdf["code"] == code) & (subdf["dataset"] == dataset_label)]
+                means.append(subset["logical_error_rate"].mean() if not subset.empty else 0)
+
+            ax.bar(
+                x + (j - 0.5) * bar_width,
+                means,
+                width=bar_width,
+                color=code_palette[j % len(code_palette)],
+                hatch='/' if j == 0 else '\\',
+                edgecolor="black",
+                label=dataset_label
+            )
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(codes, rotation=0, ha="center", fontsize=12)
+        if title_suffix == "Lower":
+            ax.set_title(f"b) Noise 10%",
+                     loc='left', fontweight='bold', fontsize=14)
+        elif title_suffix == "Normal":
+            ax.set_title(f"a) Noise 100%",
+                     loc='left', fontweight='bold', fontsize=14)
+        # No log scale anymore
+
+    axes[0].set_ylabel("Logical Error Rate", fontsize=12)
+
+    custom_labels = ["Full Size", "1 QPU Size"]
+
+    axes[1].legend(
+        labels=custom_labels,
+        loc='center left',         # stick to the left side of the bbox
+        bbox_to_anchor=(0.58, 0.86),  # (x=1.02 → just outside, y=0.5 → vertically centered)
+        fontsize=12
     )
 
-    plt.text(1.00, 1.10, 'Lower is better ↓', transform=plt.gca().transAxes,
-             fontsize=14, fontweight='bold', color="blue", va='top', ha='right')
+    fig.text(-0.05, 1.08, 'Lower is better ↓', transform=axes[1].transAxes,
+             fontsize=12, fontweight='bold', color="blue", va='top', ha='right')
 
-    plt.subplots_adjust(bottom=0.25)
+    fig.text(1.0, 1.08, 'Lower is better ↓', transform=axes[1].transAxes,
+             fontsize=12, fontweight='bold', color="blue", va='top', ha='right')
+
+    #plt.subplots_adjust(bottom=0.25, wspace=0.15)
+    plt.subplots_adjust(bottom=0.25, wspace=0.05)
     os.makedirs("data", exist_ok=True)
-    plt.savefig("data/dqc_nighthawk.pdf", format="pdf", bbox_inches="tight")
+    plt.savefig("data/dqc_flamingo.pdf", format="pdf", bbox_inches="tight")
     plt.close()
+
 
 def generate_swap_overhead_plot(df_path, backend_label, total_columns=3):
 
