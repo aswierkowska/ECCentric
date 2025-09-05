@@ -568,18 +568,149 @@ def generate_swap_overhead_plot(df_path, backend_label, total_columns=3):
 
     handles = [
         plt.Rectangle((0, 0), 1, 1,
+                    facecolor=layout_styles[layout][0],
+                    edgecolor='black',
+                    hatch=layout_styles[layout][1])
+        for layout in layout_methods
+    ]
+    labels = [layout.capitalize() for layout in layout_methods]
+
+    # Put legend inside the first subplot (axes[0])
+    axes[0].legend(
+        handles, labels,
+        title="Layout Method",
+        loc="upper left",   # you can adjust this
+        fontsize=16, title_fontsize=16,
+        frameon=True
+    )
+
+    #plt.title(f"SWAP Overhead on {backend_label} Architecture", fontsize=16, y=1.12, fontweight='bold', ha='left')
+    #plt.tight_layout()
+    plt.savefig("data/" + backend_label + "_swap_overhead.pdf", format="pdf", bbox_inches="tight")
+    plt.close()
+
+import matplotlib.ticker as mtick
+
+def generate_swap_overhead_norm_plot(df_path, backend_label, total_columns=3):
+
+    def format_code(code):
+        code = code.lower()
+        return {
+            "hh": "Heavy-Hex",
+            "surface": "Surface",
+            "color": "Color"
+        }.get(code, code.capitalize())
+
+    # Load main data
+    df = pd.read_csv(df_path)
+    df["code"] = df["code"].apply(format_code)
+
+    # Load original gate counts
+    df_og_gates = pd.read_csv("experiment_results/Translation/results.csv")
+    df_og_gates["code"] = df_og_gates["code"].apply(format_code)
+
+    # Map: code -> original 2q gates
+    og_gate_dict = dict(zip(df_og_gates["code"], df_og_gates["original_2q_gates"]))
+
+    routing_methods = df["routing_method"].dropna().unique()
+    layout_methods = df["layout_method"].dropna().unique()
+    codes = sorted(df["code"].unique())
+
+    n_routing = len(routing_methods)
+    n_cols = total_columns
+    n_rows = int(np.ceil(n_routing / n_cols))
+
+    bar_width = 0.2
+    palette = sns.color_palette("pastel", n_colors=len(layout_methods))
+    hatches = ['/', '\\', '//', 'o', '-']
+    layout_styles = {
+        layout: (palette[i % len(palette)], hatches[i % len(hatches)])
+        for i, layout in enumerate(layout_methods)
+    }
+
+    fig, axes = plt.subplots(
+        n_rows, n_cols,
+        figsize=(18, 4),
+        sharey=True,
+        constrained_layout=True
+    )
+    axes = axes.flatten()
+
+    for i, routing in enumerate(routing_methods):
+        ax = axes[i]
+        subset = df[df["routing_method"] == routing]
+
+        x = np.arange(len(codes))
+        for j, layout in enumerate(layout_methods):
+            values = []
+            errors = []
+            for code in codes:
+                entry = subset[(subset["layout_method"] == layout) & (subset["code"] == code)]
+                mean = entry["swap_overhead_mean"].values[0] if not entry.empty else 0
+                var = entry["swap_overhead_var"].values[0] if not entry.empty else 0
+
+                og_val = og_gate_dict.get(code, np.nan)
+                if not np.isnan(og_val) and og_val > 0:
+                    mean = (mean / og_val) * 100  # convert to percent
+                    var = (var / (og_val ** 2)) * (100 ** 2)  # scale variance for percentage
+                values.append(mean)
+                errors.append(np.sqrt(var))
+
+            ax.bar(
+                x + j * bar_width,
+                values,
+                width=bar_width,
+                label=layout.capitalize(),
+                color=layout_styles[layout][0],
+                edgecolor="black",
+                hatch=layout_styles[layout][1],
+                yerr=errors,
+                capsize=3,
+            )
+
+        ax.set_title(f"({chr(100 + i)}) {routing.capitalize()}",
+                     fontsize=18, fontweight='bold', loc='left')
+        ax.set_xticks(x + (bar_width * (len(layout_methods) - 1)) / 2)
+        ax.set_xticklabels(codes, rotation=75, ha="center", fontsize=16)
+        axes[0].tick_params(axis='y', labelsize=16)
+
+        if i % n_cols == 0:
+            ax.set_ylabel("SWAP Overhead [%]", fontsize=16)
+
+        ax.grid(True, axis='y', linestyle='--', alpha=0.6)
+
+        # Format y-axis as percentage
+        ax.yaxis.set_major_formatter(mtick.PercentFormatter())
+
+    # Add "lower is better" note
+    ylim = axes[0].get_ylim()
+    xlim = axes[0].get_xlim()
+    for k in range(min(3, len(axes))):
+        axes[k].text(
+            xlim[1],
+            ylim[1] * 1.1,
+            "Lower is better ↓",
+            fontsize=16, fontweight='bold', color="blue", va='top', ha='right'
+        )
+
+    # Remove unused axes
+    for j in range(i + 1, len(axes)):
+        fig.delaxes(axes[j])
+
+    # Legend
+    handles = [
+        plt.Rectangle((0, 0), 1, 1,
                       facecolor=layout_styles[layout][0],
                       edgecolor='black',
                       hatch=layout_styles[layout][1])
         for layout in layout_methods
     ]
     labels = [layout.capitalize() for layout in layout_methods]
-    fig.legend(handles, labels, title="Layout Method", loc="lower center", ncols=3, bbox_to_anchor=(0.5, -0.22), fontsize=16 , title_fontsize=16)
 
-    #plt.title(f"SWAP Overhead on {backend_label} Architecture", fontsize=16, y=1.12, fontweight='bold', ha='left')
-    #plt.tight_layout()
-    plt.savefig("data/" + backend_label + "_swap_overhead.pdf", format="pdf", bbox_inches="tight")
+    plt.savefig(f"data/{backend_label}_swap_overhead_norm.pdf",
+                format="pdf", bbox_inches="tight")
     plt.close()
+
 
 def generate_plot_variance(df_path):
     df = pd.read_csv(df_path)  # Update with the correct file path
@@ -638,7 +769,7 @@ def generate_plot_variance(df_path):
     plt.yticks(fontsize=12)
     plt.title("Logical Error Rate by Code", loc='left', fontweight='bold', fontsize=14)
     plt.legend(title="Variance", loc='lower center' , bbox_to_anchor=(1.055, 0.45), fontsize=12, frameon=True)
-    plt.text(1.00, 1.10, 'Lower is better ↓', transform=plt.gca().transAxes,
+    plt.text(1.00, 1.2, 'Lower is better ↓', transform=plt.gca().transAxes,
              fontsize=12, fontweight='bold', color="blue", va='top', ha='right')
     plt.tight_layout()
 
@@ -766,12 +897,13 @@ if __name__ == '__main__':
     df_hh = "experiment_results/Routing_hh/results.csv"
     plot_variance = "experiment_results/Variance/results.csv"
     gate_overhead = "experiment_results/Translation/results.csv"
-    generate_size_plot(size)
-    generate_connectivity_plot(connectivity)
-    generate_topology_plot(topology)
-    generate_technology_plot(path)
-    generate_dqc_plot(path)
+    #generate_size_plot(size)
+    #generate_connectivity_plot(connectivity)
+    #generate_topology_plot(topology)
+    #generate_technology_plot(path)
+    #generate_dqc_plot(path)
     generate_swap_overhead_plot(df_grid, "Grid")
+    #generate_swap_overhead_norm_plot(df_grid, "Grid")
     #generate_swap_overhead_plot(df_hh, "Heavy-Hex")
-    generate_plot_variance(plot_variance)
-    generate_normalized_gate_ovehead(gate_overhead)
+    #generate_plot_variance(plot_variance)
+    #generate_normalized_gate_ovehead(gate_overhead)
