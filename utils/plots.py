@@ -576,7 +576,7 @@ def generate_swap_overhead_plot(df_path, backend_label, total_columns=3):
     labels = [layout.capitalize() for layout in layout_methods]
     fig.legend(handles, labels, title="Layout Method", loc="lower center", ncols=3, bbox_to_anchor=(0.5, -0.22), fontsize=16 , title_fontsize=16)
 
-    #plt.title(f"SWAP Overhead on {backend_label} Architecture", fontsize=16, y=1.02, fontweight='bold', ha='left')
+    #plt.title(f"SWAP Overhead on {backend_label} Architecture", fontsize=16, y=1.12, fontweight='bold', ha='left')
     #plt.tight_layout()
     plt.savefig("data/" + backend_label + "_swap_overhead.pdf", format="pdf", bbox_inches="tight")
     plt.close()
@@ -772,6 +772,6 @@ if __name__ == '__main__':
     generate_technology_plot(path)
     generate_dqc_plot(path)
     generate_swap_overhead_plot(df_grid, "Grid")
-    generate_swap_overhead_plot(df_hh, "Heavy-Hex")
+    #generate_swap_overhead_plot(df_hh, "Heavy-Hex")
     generate_plot_variance(plot_variance)
     generate_normalized_gate_ovehead(gate_overhead)
