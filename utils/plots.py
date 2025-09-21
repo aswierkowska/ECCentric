@@ -32,7 +32,7 @@ error_type_map = {
 backend_rename_map = {
     "real_willow": "Willow",
     "real_infleqtion": "Infleqtion",
-    "real_nsinfleqtion": "Infleqtion w/o\nshuttling",
+    "real_nsinfleqtion": "Infleqtion (w/o s.)",
     "real_apollo": "Apollo",
     "real_flamingo": "Flamingo",
     # "real_nighthawk": "Nighthawk"
@@ -46,6 +46,8 @@ code_hatches = ["/", "\\", "//", "++", "xx", "**"]
 WIDE_FIGSIZE = 6
 HEIGHT_FIGSIZE = 2.5
 FONTSIZE = 12
+BAR_WIDTH = 0.2  # constant bar width for consistency with size plot
+group_spacing = 0.4
 
 # Highlight backend sizes for specific codes and error types
 HIGHLIGHT = {
@@ -198,7 +200,6 @@ def generate_size_plot(df_path):
         plt.savefig(f"data/size_{backend}_{et}.pdf", format="pdf")
         plt.close(fig)
 
-
 def generate_connectivity_plot(df_path):
     df = pd.read_csv(df_path)
     df["code"] = df["code"].apply(lambda x: code_rename_map.get(x.lower(), x.capitalize()))
@@ -206,13 +207,16 @@ def generate_connectivity_plot(df_path):
     df["backend"] = pd.Categorical(df["backend"], categories=backend_order, ordered=True)
     df["std"] = np.sqrt(df["logical_error_rate"] * (1 - df["logical_error_rate"]) / df["num_samples"])
 
-    sns.set(style="whitegrid")
-    plt.figure(figsize=(6, 4))   # narrower, good for side-by-side
-
     codes = sorted(df["code"].unique())
     backends = backend_order
-    x = np.arange(len(backends))
-    bar_width = 0.20   # slightly wider bars for clarity
+    n_backends = len(backends)
+    n_codes = len(codes)
+
+    # create figure with same size as a single plot in generate_size_plot
+    fig, ax = plt.subplots(figsize=(WIDE_FIGSIZE, HEIGHT_FIGSIZE))
+
+    # spacing between backend groups
+    x = np.arange(n_backends) * (BAR_WIDTH * n_codes + group_spacing)
 
     for i, code in enumerate(codes):
         subset = df[df["code"] == code]
@@ -227,30 +231,54 @@ def generate_connectivity_plot(df_path):
                 means.append(0)
                 stds.append(0)
 
-        plt.bar(
-            x + i * bar_width,
+        ax.bar(
+            x + i * BAR_WIDTH,
             means,
             yerr=stds,
-            width=bar_width,
+            width=BAR_WIDTH,
             color=code_palette[i % len(code_palette)],
             hatch=code_hatches[i % len(code_hatches)],
             edgecolor="black",
             label=code
         )
 
-    plt.xticks(x + bar_width * (len(codes) - 1) / 2, 
-               [b.replace("custom_", "").capitalize() for b in backends],
-               fontsize=11)
-    plt.ylabel("Logical Error Rate (Log)", fontsize=11)
-    plt.title("Connectivity", loc='center', fontweight='bold', fontsize=12)
-    plt.yscale("log")
-    plt.grid(True, which="both", axis="y", linestyle="--", linewidth=0.5)
+    # axes formatting
+    ax.set_xticks(x + BAR_WIDTH * (n_codes - 1) / 2)
+    ax.set_xticklabels([b.replace("custom_", "").capitalize() for b in backends], fontsize=FONTSIZE - 2)
+    ax.set_ylabel("Logical Error Rate (Log)", fontsize=FONTSIZE)
+    ax.set_yscale("log")
+    ax.grid(axis="y")
+    ax.set_axisbelow(True)
 
-    plt.legend(loc='upper right', fontsize=9, frameon=False)
-    plt.tight_layout()
+    # title in top-left corner
+    ax.set_title("Artificial Topology", loc="left", fontsize=12, fontweight="bold")
+
+    # separate "Lower is better ↓" text
+    ax.text(1.0, 1.14, "Lower is better ↓", transform=ax.transAxes,
+            fontsize=12, fontweight="bold", color="blue",
+            va="top", ha="right")
+
+    # collect unique handles/labels for legend
+    handles, labels = ax.get_legend_handles_labels()
+    unique_labels = {}
+    for h, l in zip(handles, labels):
+        if l not in unique_labels:
+            unique_labels[l] = h
+
+    # leave space at bottom for legend
+    plt.subplots_adjust(bottom=0.3)
+    fig.legend(
+        handles=list(unique_labels.values()),
+        labels=list(unique_labels.keys()),
+        loc="lower center",
+        bbox_to_anchor=(0.5, -0.03),
+        ncol=len(unique_labels) // 2,
+        frameon=False
+    )
+
     os.makedirs("data", exist_ok=True)
-    plt.savefig("data/connectivity.pdf", format="pdf", bbox_inches="tight")
-    plt.close()
+    plt.savefig("data/connectivity.pdf", format="pdf")
+    plt.close(fig)
 
 
 def generate_topology_plot(df_path):
@@ -259,14 +287,18 @@ def generate_topology_plot(df_path):
     df["code"] = df["code"].apply(lambda x: code_rename_map.get(x.lower(), x.capitalize()))
     df["std"] = np.sqrt(df["logical_error_rate"] * (1 - df["logical_error_rate"]) / df["num_samples"])
 
-    sns.set(style="whitegrid")
-    plt.figure(figsize=(6, 4))   # also narrower
-
-    backends = df["backend"].unique()
-    backends = [backends[3], backends[1], backends[0], backends[2]]
     codes = sorted(df["code"].unique())
-    x = np.arange(len(backends))
-    bar_width = 0.20
+    backends = df["backend"].unique()
+    # reorder backends same as original
+    backends = [backends[3], backends[1], backends[0], backends[2]]
+    n_backends = len(backends)
+    n_codes = len(codes)
+
+    # create figure with same size as a single plot in generate_size_plot
+    fig, ax = plt.subplots(figsize=(WIDE_FIGSIZE, HEIGHT_FIGSIZE))
+
+    # spacing between backend groups
+    x = np.arange(n_backends) * (BAR_WIDTH * n_codes + group_spacing)
 
     for i, code in enumerate(codes):
         subset = df[df["code"] == code]
@@ -281,28 +313,55 @@ def generate_topology_plot(df_path):
                 means.append(0)
                 stds.append(0)
 
-        plt.bar(
-            x + i * bar_width,
+        ax.bar(
+            x + i * BAR_WIDTH,
             means,
             yerr=stds,
-            width=bar_width,
+            width=BAR_WIDTH,
             color=code_palette[i % len(code_palette)],
             hatch=code_hatches[i % len(code_hatches)],
             edgecolor="black",
             label=code
         )
 
-    plt.xticks(x + bar_width * (len(codes) - 1) / 2, backends, fontsize=11)
-    plt.ylabel("Logical Error Rate (Log)", fontsize=11)
-    plt.title("Topology", loc='center', fontweight='bold', fontsize=12)
-    plt.yscale("log")
-    plt.grid(True, which="both", axis="y", linestyle="--", linewidth=0.5)
+    # axes formatting
+    ax.set_xticks(x + BAR_WIDTH * (n_codes - 1) / 2)
+    ax.set_xticklabels(backends, fontsize=FONTSIZE - 2)
+    ax.set_ylabel("Logical Error Rate (Log)", fontsize=FONTSIZE)
+    ax.set_yscale("log")
+    ax.grid(axis="y")
+    ax.set_axisbelow(True)
 
-    plt.legend(loc='upper right', fontsize=9, frameon=False)
-    plt.tight_layout()
+    # title in top-left corner
+    ax.set_title("Real Topology", loc="left", fontsize=12, fontweight="bold")
+
+    # separate "Lower is better ↓" text
+    ax.text(1.0, 1.14, "Lower is better ↓", transform=ax.transAxes,
+            fontsize=12, fontweight="bold", color="blue",
+            va="top", ha="right")
+
+    # collect unique handles/labels for legend
+    handles, labels = ax.get_legend_handles_labels()
+    unique_labels = {}
+    for h, l in zip(handles, labels):
+        if l not in unique_labels:
+            unique_labels[l] = h
+
+    # leave space at bottom for legend
+    plt.subplots_adjust(bottom=0.3)
+    fig.legend(
+        handles=list(unique_labels.values()),
+        labels=list(unique_labels.keys()),
+        loc="lower center",
+        bbox_to_anchor=(0.5, -0.03),
+        ncol=len(unique_labels) // 2,
+        frameon=False
+    )
+
     os.makedirs("data", exist_ok=True)
-    plt.savefig("data/topology.pdf", format="pdf", bbox_inches="tight")
-    plt.close()
+    plt.savefig("data/topology.pdf", format="pdf")
+    plt.close(fig)
+
 
 
 def generate_technology_plot(path):
@@ -921,179 +980,6 @@ def generate_normalized_gate_ovehead(df_path):
     plt.savefig("data/translation_norm.pdf", format="pdf", bbox_inches="tight")
     plt.close()
 
-def generate_connectivity_plot(df_path):
-    df = pd.read_csv(df_path)
-    df["code"] = df["code"].apply(lambda x: code_rename_map.get(x.lower(), x.capitalize()))
-    backend_order = ['custom_grid', 'custom_cube', 'custom_full']
-    df["backend"] = pd.Categorical(df["backend"], categories=backend_order, ordered=True)
-    df["std"] = np.sqrt(df["logical_error_rate"] * (1 - df["logical_error_rate"]) / df["num_samples"])
-
-    sns.set(style="whitegrid")
-    plt.figure(figsize=(6, 4))   # narrower, good for side-by-side
-
-    codes = sorted(df["code"].unique())
-    backends = backend_order
-    x = np.arange(len(backends))
-    bar_width = 0.20   # slightly wider bars for clarity
-
-    for i, code in enumerate(codes):
-        subset = df[df["code"] == code]
-        means, stds = [], []
-
-        for backend in backends:
-            row = subset[subset["backend"] == backend]
-            if not row.empty:
-                means.append(row["logical_error_rate"].values[0])
-                stds.append(row["std"].values[0])
-            else:
-                means.append(0)
-                stds.append(0)
-
-        plt.bar(
-            x + i * bar_width,
-            means,
-            yerr=stds,
-            width=bar_width,
-            color=code_palette[i % len(code_palette)],
-            hatch=code_hatches[i % len(code_hatches)],
-            edgecolor="black",
-            label=code
-        )
-
-    plt.xticks(x + bar_width * (len(codes) - 1) / 2, 
-               [b.replace("custom_", "").capitalize() for b in backends],
-               fontsize=11)
-    plt.ylabel("Logical Error Rate (Log)", fontsize=11)
-    plt.title("Connectivity", loc='center', fontweight='bold', fontsize=12)
-    plt.yscale("log")
-    plt.grid(True, which="both", axis="y", linestyle="--", linewidth=0.5)
-
-    plt.legend(loc='upper right', fontsize=9, frameon=False)
-    plt.tight_layout()
-    os.makedirs("data", exist_ok=True)
-    plt.savefig("data/connectivity.pdf", format="pdf", bbox_inches="tight")
-    plt.close()
-
-
-def generate_connectivity_topology_plots(connectivity_csv, topology_csv):
-    # --- Connectivity data ---
-    df_conn = pd.read_csv(connectivity_csv)
-    df_conn["code"] = df_conn["code"].apply(lambda x: code_rename_map.get(x.lower(), x.capitalize()))
-    backend_order = ['custom_grid', 'custom_cube', 'custom_full']
-    df_conn["backend"] = pd.Categorical(df_conn["backend"], categories=backend_order, ordered=True)
-    df_conn["std"] = np.sqrt(df_conn["logical_error_rate"] * (1 - df_conn["logical_error_rate"]) / df_conn["num_samples"])
-
-    # --- Topology data ---
-    df_topo = pd.read_csv(topology_csv)
-    df_topo["backend"] = df_topo["backend"].replace(backend_rename_map)
-    df_topo["code"] = df_topo["code"].apply(lambda x: code_rename_map.get(x.lower(), x.capitalize()))
-    df_topo["std"] = np.sqrt(df_topo["logical_error_rate"] * (1 - df_topo["logical_error_rate"]) / df_topo["num_samples"])
-
-    # --- Settings ---
-    sns.set(style="whitegrid")
-    fig, axes = plt.subplots(1, 2, figsize=(11, 3), sharey=True)
-    bar_width = 0.18
-    group_spacing = 0.25
-    codes = sorted(set(df_conn["code"].unique()).union(df_topo["code"].unique()))
-
-    # --- Connectivity subplot ---
-    ax = axes[0]
-    x = np.arange(len(backend_order)) * (bar_width * len(codes) + group_spacing)
-
-    for i, code in enumerate(codes):
-        subset = df_conn[df_conn["code"] == code]
-        means, stds = [], []
-        for backend in backend_order:
-            row = subset[subset["backend"] == backend]
-            if not row.empty:
-                means.append(row["logical_error_rate"].values[0])
-                stds.append(row["std"].values[0])
-            else:
-                means.append(0)
-                stds.append(0)
-        ax.bar(
-            x + i * bar_width,
-            means,
-            yerr=stds,
-            width=bar_width,
-            color=code_palette[i % len(code_palette)],
-            hatch=code_hatches[i % len(code_hatches)],
-            edgecolor="black",
-            label=code if ax == axes[0] else None
-        )
-
-    ax.set_xticks(x + bar_width * (len(codes) - 1) / 2)
-    ax.set_xticklabels([b.replace("custom_", "").capitalize() for b in backend_order], fontsize=11)
-    ax.set_title("Artificial Connectivity", fontsize=14, fontweight="bold", loc='left')
-    ax.set_yscale("log")
-    ax.set_ylabel("Logical Error Rate (Log)", fontsize=11)
-    ax.grid(True, which="both", axis="y", linestyle="--", linewidth=0.5)
-
-    # --- Topology subplot ---
-    ax = axes[1]
-    backends = df_topo["backend"].unique()
-    backends = [backends[3], backends[1], backends[0], backends[2]]
-    x = np.arange(len(backends)) * (bar_width * len(codes) + group_spacing)
-
-    for i, code in enumerate(codes):
-        subset = df_topo[df_topo["code"] == code]
-        means, stds = [], []
-        for backend in backends:
-            row = subset[subset["backend"] == backend]
-            if not row.empty:
-                means.append(row["logical_error_rate"].values[0])
-                stds.append(row["std"].values[0])
-            else:
-                means.append(0)
-                stds.append(0)
-        ax.bar(
-            x + i * bar_width,
-            means,
-            yerr=stds,
-            width=bar_width,
-            color=code_palette[i % len(code_palette)],
-            hatch=code_hatches[i % len(code_hatches)],
-            edgecolor="black"
-        )
-
-    ax.set_xticks(x + bar_width * (len(codes) - 1) / 2)
-    ax.set_xticklabels(backends, fontsize=11)
-    ax.set_title("Real Devices", fontsize=14, fontweight="bold", loc='left')
-    ax.set_yscale("log")
-    ax.grid(True, which="both", axis="y", linestyle="--", linewidth=0.5)
-# For the left (Connectivity) plot
-    axes[0].text(
-        1.00, 1.1, 'Lower is better ↓',
-        transform=axes[0].transAxes,
-        fontsize=12, fontweight='bold', color="blue",
-        va='top', ha='right'
-    )
-
-    # For the right (Topology) plot
-    axes[1].text(
-        1.00, 1.1, 'Lower is better ↓',
-        transform=axes[1].transAxes,
-        fontsize=12, fontweight='bold', color="blue",
-        va='top', ha='right'
-    )
-
-    # --- Shared legend below ---
-    handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(
-        handles, labels,
-        loc="lower center",
-        bbox_to_anchor=(0.5, 0.06),
-        ncol=len(codes),
-        fontsize=11,
-        frameon=False
-    )
-
-    fig.tight_layout(rect=[0, 0.08, 1, 1])
-    os.makedirs("data", exist_ok=True)
-    plt.savefig("data/connectivity_topology.pdf", format="pdf", bbox_inches="tight")
-    plt.close()
-
-
 def generate_plot_variance_two(low_noise_csv, high_noise_csv):
     # --- Load data ---
     def preprocess(path):
@@ -1188,14 +1074,13 @@ if __name__ == '__main__':
     variance_low = "experiment_results/Variance_noise_10/results.csv"
     gate_overhead = "experiment_results/Translation/results.csv"
     #generate_size_plot(size)
-    generate_connectivity_plot(connectivity)
+    #generate_connectivity_plot(connectivity)
     #generate_topology_plot(topology)
-    #generate_connectivity_topology_plots(connectivity, topology)
+    generate_plot_variance(plot_variance)
     #generate_technology_plot(path)
     #generate_dqc_plot(path)
     #generate_swap_overhead_plot(df_grid, "Grid")
     #generate_swap_overhead_norm_plot(df_grid, "Grid")
     #generate_swap_overhead_plot(df_hh, "Heavy-Hex")
-    #generate_plot_variance(plot_variance)
     #generate_plot_variance_two(low_noise_csv=variance_low, high_noise_csv=variance_high)
     #generate_normalized_gate_ovehead(gate_overhead)
