@@ -33,9 +33,10 @@ backend_rename_map = {
     "real_willow": "Willow",
     "real_infleqtion": "Infleqtion",
     "real_nsinfleqtion": "Infleqtion (w/o s.)",
+    "real_nsapollo": "Apollo (w/o s.)",
     "real_apollo": "Apollo",
     "real_flamingo": "Flamingo",
-    # "real_nighthawk": "Nighthawk"
+    "real_nighthawk": "Nighthawk"
 }
 
 # Color palette and hatches for bars
@@ -363,79 +364,106 @@ def generate_topology_plot(df_path):
     plt.close(fig)
 
 
-
 def generate_technology_plot(path):
-    #technologies = ["Willow", "Apollo", "Infleqtion", "DQC", "Nighthawk"]
     technologies = ["Willow", "Apollo", "Infleqtion"]
-    dfs = []
+    raw_dfs = []
 
+    # Load all data
     for tech in technologies:
         tech_path = os.path.join(path, tech, "results.csv")
         df = pd.read_csv(tech_path)
-        df["backend"] = df["backend"].replace(backend_rename_map)
-        dfs.append(df)
+        raw_dfs.append(df)
 
-    df = pd.concat(dfs, ignore_index=True)
+    df = pd.concat(raw_dfs, ignore_index=True)
 
-    # Normalize code labels
-    df["code"] = df["code"].apply(lambda x: code_rename_map.get(x.lower(), x.capitalize()))
+    # Split into two subsets BEFORE mapping backend names
+    subsets = {
+        "ns": df[df["backend"].str.contains("ns", case=False)].copy(),
+        "non_ns": df[~df["backend"].str.contains("ns", case=False)].copy()
+    }
 
-    # Ensure consistent order
-    backends = df["backend"].unique()
-    codes = sorted(df["code"].unique())
+    for key, subset_df in subsets.items():
+        if subset_df.empty:
+            continue  # skip empty subset
 
-    df["backend"] = pd.Categorical(df["backend"], categories=backends, ordered=True)
-    df["code"] = pd.Categorical(df["code"], categories=codes, ordered=True)
+        # Now map backend names, normalize codes, calculate std
+        subset_df["backend"] = subset_df["backend"].replace(backend_rename_map)
+        subset_df["code"] = subset_df["code"].apply(lambda x: code_rename_map.get(x.lower(), x.capitalize()))
+        subset_df["std"] = np.sqrt(subset_df["logical_error_rate"] * (1 - subset_df["logical_error_rate"]) / subset_df["num_samples"])
 
-    sns.set(style="whitegrid")
-    plt.figure(figsize=(16, 3))
+        backends = subset_df["backend"].unique()
+        codes = sorted(subset_df["code"].unique())
+        n_backends = len(backends)
+        n_codes = len(codes)
 
-    x = np.arange(len(backends))
-    bar_width = 0.8 / len(codes)
+        fig, ax = plt.subplots(figsize=(WIDE_FIGSIZE, HEIGHT_FIGSIZE))
 
-    for i, code in enumerate(codes):
-        means = []
-        for backend in backends:
-            subset = df[(df["backend"] == backend) & (df["code"] == code)]
-            if not subset.empty:
-                means.append(subset["logical_error_rate"].values[0])
-            else:
-                means.append(0)
+        # spacing between backend groups
+        x = np.arange(n_backends) * (BAR_WIDTH * n_codes + group_spacing)
 
-        plt.bar(
-            x + i * bar_width,
-            means,
-            width=bar_width,
-            color=code_palette[i % len(code_palette)],
-            hatch=code_hatches[i % len(code_hatches)],
-            edgecolor="black",
-            label=code
+        for i, code in enumerate(codes):
+            code_subset = subset_df[subset_df["code"] == code]
+            means, stds = [], []
+
+            for backend in backends:
+                row = code_subset[code_subset["backend"] == backend]
+                if not row.empty:
+                    means.append(row["logical_error_rate"].values[0])
+                    stds.append(row["std"].values[0])
+                else:
+                    means.append(0)
+                    stds.append(0)
+
+            ax.bar(
+                x + i * BAR_WIDTH,
+                means,
+                yerr=stds,
+                width=BAR_WIDTH,
+                color=code_palette[i % len(code_palette)],
+                hatch=code_hatches[i % len(code_hatches)],
+                edgecolor="black",
+                label=code
+            )
+
+        # axes formatting
+        ax.set_xticks(x + BAR_WIDTH * (n_codes - 1) / 2)
+        ax.set_xticklabels(backends, fontsize=FONTSIZE - 2)
+        ax.set_ylabel("Logical Error Rate (Log)", fontsize=FONTSIZE)
+        ax.set_yscale("log")
+        ax.grid(axis="y")
+        ax.set_axisbelow(True)
+
+        # title
+        plot_title = "W/o Shuttling" if key == "ns" else "W/ Shuttling"
+        ax.set_title(plot_title, loc="left", fontsize=12, fontweight="bold")
+
+        # "Lower is better ↓"
+        ax.text(1.0, 1.14, "Lower is better ↓", transform=ax.transAxes,
+                fontsize=12, fontweight="bold", color="blue",
+                va="top", ha="right")
+
+        # legend
+        handles, labels = ax.get_legend_handles_labels()
+        unique_labels = {}
+        for h, l in zip(handles, labels):
+            if l not in unique_labels:
+                unique_labels[l] = h
+
+        plt.subplots_adjust(bottom=0.3)
+        fig.legend(
+            handles=list(unique_labels.values()),
+            labels=list(unique_labels.keys()),
+            loc="lower center",
+            bbox_to_anchor=(0.5, -0.03),
+            ncol=(len(unique_labels) + 1) // 2,  # two rows if needed
+            frameon=False
         )
 
-    plt.xticks(x + bar_width * (len(codes) - 1) * 3/4, backends, rotation=0, ha="right", fontsize=14)
-    #plt.xlabel("Backend")
-    plt.ylabel("Logical Error Rate (Log)", fontsize=12)
-    plt.title("Logical Error Rate by Backend and QEC Code", loc='left', fontweight='bold', fontsize=14)
-    plt.yscale("log")
-    plt.legend(
-        # title="QEC Code",
-        loc="center left",
-        bbox_to_anchor=(1.02, 0.5),  # just outside the right side, vertically centered
-        fontsize=14,
-        title_fontsize=12,
-        frameon=False
-    )
+        os.makedirs("data", exist_ok=True)
+        plt.savefig(f"data/technologies_{key}.pdf", format="pdf")
+        plt.close(fig)
 
-    plt.grid(axis="y", linewidth=0.7, alpha=0.7)   # only horizontal lines
-    plt.gca().grid(False, axis="x")  # make sure no vertical grid lines are drawn
 
-    plt.text(1.00, 1.10, 'Lower is better ↓', transform=plt.gca().transAxes,
-             fontsize=14, fontweight='bold', color="blue", va='top', ha='right')
-
-    plt.subplots_adjust(bottom=0.25)  # Reserve space for rotated labels + legend
-    os.makedirs("data", exist_ok=True)
-    plt.savefig("data/technologies.pdf", format="pdf", bbox_inches="tight")
-    plt.close()
 
 def generate_dqc_plot(path):
     datasets_normal = [
@@ -788,34 +816,34 @@ def generate_swap_overhead_norm_plot(df_path, backend_label, total_columns=3):
 
 
 def generate_plot_variance(df_path):
-    df = pd.read_csv(df_path)  # Update with the correct file path
+    df = pd.read_csv(df_path)
 
-    # Ensure `backend` is categorical with proper order
+    # Ensure backend is categorical with proper order
     backend_order = ["variance_low", "variance_mid", "variance_high"]
     df["backend"] = pd.Categorical(df["backend"], categories=backend_order, ordered=True)
     df["code"] = df["code"].apply(lambda x: code_rename_map.get(x.lower(), x.capitalize()))
 
-    # Calculate standard deviation using Bernoulli trial std formula
+    # Calculate standard deviation using Bernoulli std
     df["std"] = np.sqrt(df["logical_error_rate"] * (1 - df["logical_error_rate"]) / df["num_samples"])
 
-    # Plot settings
-    sns.set(style="whitegrid")
-    plt.figure(figsize=(12, 3))
-
-    # Unique codes sorted
     codes = sorted(df["code"].unique())
-    x = np.arange(len(codes))
-    bar_width = 0.2
+    n_codes = len(codes)
+    n_backends = len(backend_order)
 
-    # Color palette
-    palette = sns.color_palette("pastel", n_colors=3)
-    hatches = ['/', '\\', '//']
+    # Create figure with same height as size/topology plots
+    fig, ax = plt.subplots(figsize=(WIDE_FIGSIZE, HEIGHT_FIGSIZE))
 
-    # Plot bars for each backend
+    # spacing between backend groups
+    group_spacing = 0.4
+    x = np.arange(n_codes) * (BAR_WIDTH * n_backends + group_spacing)
+
+    palette = sns.color_palette("pastel", n_colors=n_backends)
+    hatches = code_hatches[:n_backends]
+
+    # Plot bars
     for i, backend in enumerate(backend_order):
         subset = df[df["backend"] == backend]
-        means = []
-        stds = []
+        means, stds = [], []
 
         for code in codes:
             row = subset[subset["code"] == code]
@@ -826,31 +854,56 @@ def generate_plot_variance(df_path):
                 means.append(0)
                 stds.append(0)
 
-        plt.bar(
-            x + i * bar_width,
+        ax.bar(
+            x + i * BAR_WIDTH,
             means,
             yerr=stds,
-            width=bar_width,
+            width=BAR_WIDTH,
             color=palette[i],
             hatch=hatches[i],
             edgecolor="black",
             label=backend.replace("variance_", "").capitalize()
         )
 
-    # Axes and labels
-    plt.xticks(x + bar_width, codes, rotation=0, ha="center", fontsize=12)
-    #plt.xlabel("Quantum Error Correction Code")
-    plt.ylabel("Logical Error Rate", fontsize=12)
-    plt.yticks(fontsize=12)
-    plt.title("Logical Error Rate by Code", loc='left', fontweight='bold', fontsize=14)
-    plt.legend(title="Variance", loc='lower center' , bbox_to_anchor=(1.055, 0.45), fontsize=12, frameon=True)
-    plt.text(1.00, 1.2, 'Lower is better ↓', transform=plt.gca().transAxes,
-             fontsize=12, fontweight='bold', color="blue", va='top', ha='right')
-    plt.tight_layout()
+    # axes formatting
+    ax.set_xticks(x + BAR_WIDTH * (n_backends - 1) / 2)
+    ax.set_xticklabels(codes, fontsize=FONTSIZE - 2)
+    ax.set_ylabel("Logical Error Rate", fontsize=FONTSIZE)
+    ax.set_ylim(0, 1.0)  # ensure Y-axis goes from 0 to 1
+    ax.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])  # fixed steps
+    ax.grid(axis="y")
+    ax.set_axisbelow(True)
 
-    # Save / Show
-    plt.savefig("data/plot_variance.pdf", format="pdf", bbox_inches="tight")
-    plt.close()
+    # title in top-left corner
+    ax.set_title(f"Noise {df_path.split('/')[1].split('_')[2]}%", loc="left", fontsize=12, fontweight="bold")
+
+    # separate "Lower is better ↓" text
+    ax.text(1.0, 1.14, "Lower is better ↓", transform=ax.transAxes,
+            fontsize=12, fontweight="bold", color="blue",
+            va="top", ha="right")
+
+    # collect unique handles/labels for legend
+    handles, labels = ax.get_legend_handles_labels()
+    unique_labels = {}
+    for h, l in zip(handles, labels):
+        if l not in unique_labels:
+            unique_labels[l] = h
+
+    # leave space at bottom for legend
+    plt.subplots_adjust(bottom=0.3)
+    fig.legend(
+        handles=list(unique_labels.values()),
+        labels=list(unique_labels.keys()),
+        loc="lower center",
+        bbox_to_anchor=(0.5, -0.03),
+        ncol=len(unique_labels),
+        frameon=False
+    )
+
+    os.makedirs("data", exist_ok=True)
+    plt.savefig(f"data/{df_path.split('/')[1]}.pdf", format="pdf")
+    plt.close(fig)
+
 
 from matplotlib.ticker import ScalarFormatter
 
@@ -1076,8 +1129,9 @@ if __name__ == '__main__':
     #generate_size_plot(size)
     #generate_connectivity_plot(connectivity)
     #generate_topology_plot(topology)
-    generate_plot_variance(plot_variance)
-    #generate_technology_plot(path)
+    #generate_plot_variance(variance_high)
+    #generate_plot_variance(variance_low)
+    generate_technology_plot(path)
     #generate_dqc_plot(path)
     #generate_swap_overhead_plot(df_grid, "Grid")
     #generate_swap_overhead_norm_plot(df_grid, "Grid")
