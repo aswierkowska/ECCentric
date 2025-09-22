@@ -45,7 +45,7 @@ code_hatches = ["/", "\\", "//", "++", "xx", "**"]
 
 # Figure sizes and font
 WIDE_FIGSIZE = 6
-HEIGHT_FIGSIZE = 2.5
+HEIGHT_FIGSIZE = 2.2
 FONTSIZE = 12
 BAR_WIDTH = 0.2  # constant bar width for consistency with size plot
 group_spacing = 0.4
@@ -107,9 +107,9 @@ def generate_size_plot(df_path):
         n_rows, n_cols = 1, len(error_probs)
         fig, axes = plt.subplots(
             n_rows, n_cols,
-            figsize=(WIDE_FIGSIZE * len(error_probs), HEIGHT_FIGSIZE),
+            figsize=(WIDE_FIGSIZE * 2, HEIGHT_FIGSIZE),
             sharey=True,
-            gridspec_kw={'wspace': 0.05}
+            gridspec_kw={'wspace': 0.1}  # minimal spacing
         )
         if n_cols == 1:
             axes = [axes]
@@ -132,16 +132,16 @@ def generate_size_plot(df_path):
                 xs = group_sorted['backend_size'].to_numpy()
                 ys = group_sorted['logical_error_rate'].to_numpy()
 
-                # --- base line + plain markers (no outline) ---
+                # base line + plain markers
                 line = ax.plot(
                     xs, ys,
                     label=code_display,
                     marker=marker,
                     color=code_color[code_key],
-                    markeredgecolor="none",   # plain markers
+                    markeredgecolor="none",
                 )[0]
 
-                # --- overlay highlighted markers with black outline ---
+                # overlay highlighted markers with black outline
                 highlight_x = HIGHLIGHT.get((code_key, et), [])
                 if highlight_x:
                     sel = np.isin(xs, highlight_x)
@@ -151,11 +151,11 @@ def generate_size_plot(df_path):
                         marker=marker,
                         markersize=line.get_markersize() * 1.4,
                         markerfacecolor=code_color[code_key],
-                        markeredgecolor="black",   # outline only for highlights
+                        markeredgecolor="black",
                         markeredgewidth=1.5,
                         color=code_color[code_key],
                         zorder=line.get_zorder() + 2,
-                        label="_nolegend_",        # don’t duplicate in legend
+                        label="_nolegend_",
                     )
 
             # axes formatting
@@ -165,14 +165,14 @@ def generate_size_plot(df_path):
             ax.set_xticklabels(xticks, fontsize=FONTSIZE - 2)
 
             # title in top-left corner
-            ax.set_title(f"{letters[col]} {et} (p={p})", loc="left", fontsize=12, fontweight="bold")
+            ax.set_title(f"{et} ({p})", loc="left", fontsize=12, fontweight="bold")
 
             if col == 0:
                 ax.set_ylabel("Logical Error Rate", fontsize=FONTSIZE)
 
-            # separate "Lower is better ↓" text, same height as title
+            # separate "Lower is better ↓" text
             ax.text(
-                1.0, 1.14, "Lower is better ↓",
+                1.0, 1.16, "Lower is better ↓",
                 transform=ax.transAxes,
                 fontsize=12, fontweight="bold",
                 color="blue", va="top", ha="right"
@@ -180,6 +180,7 @@ def generate_size_plot(df_path):
 
             ax.grid(True)
             ax.set_ylim(0, 0.65)
+            ax.margins(x=0.0)  # remove padding on data ends
 
             # legend below each subplot
             handles, labels = ax.get_legend_handles_labels()
@@ -188,18 +189,29 @@ def generate_size_plot(df_path):
                 if l not in unique_labels and l != "_nolegend_":
                     unique_labels[l] = h
 
-        plt.subplots_adjust(bottom=0.3)  # leave room at bottom for legend
+        # adjust figure margins to remove left/right padding
+        plt.subplots_adjust(
+            left=0.05,    # small left margin
+            right=0.95,   # small right margin
+            bottom=0.3,   # room for legend
+        )
+
+        for ax in axes:
+            ax.margins(x=0)  # no extra padding for the plotted data
+
         fig.legend(
             handles=list(unique_labels.values()),
             labels=list(unique_labels.keys()),
             loc="lower center",
-            bbox_to_anchor=(0.5, -0.03),  # legend sits just above the bottom
+            bbox_to_anchor=(0.5, -0.03),
             ncol=len(unique_labels),
             frameon=False
         )
 
+        os.makedirs("data", exist_ok=True)
         plt.savefig(f"data/size_{backend}_{et}.pdf", format="pdf")
         plt.close(fig)
+
 
 def generate_connectivity_plot(df_path):
     df = pd.read_csv(df_path)
