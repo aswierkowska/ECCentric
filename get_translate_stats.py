@@ -32,59 +32,60 @@ def run_experiment(
     translating_methods,
     gate_sets,
 ):
-    try:
-        backend = get_backend(backend_name, backend_size)
-        if d is None:
-            d = get_max_d(code_name, backend.coupling_map.size())
-            if d < 3:
-                logging.info(
-                    f"{experiment_name} | Skipping {code_name} with distance {d} on backend {backend_name}: distance too small"
-                )
-                return
+    for level in [2, 3]:
+        try:
+            backend = get_backend(backend_name, backend_size)
+            if d is None:
+                d = get_max_d(code_name, backend.coupling_map.size())
+                if d < 3:
+                    logging.info(
+                        f"{experiment_name} | Skipping {code_name} with distance {d} on backend {backend_name}: distance too small"
+                    )
+                    return
 
-        code = get_code(code_name, d, cycles)
+            code = get_code(code_name, d, cycles)
 
-        for state, qc in code.circuit.items():
-            original_circuit = qc
-            original_total_gates = count_total_gates_qiskit(original_circuit)
-            original_2q_gates = count_2q_gates_qiskit(original_circuit)
+            for state, qc in code.circuit.items():
+                original_circuit = qc
+                original_total_gates = count_total_gates_qiskit(original_circuit)
+                original_2q_gates = count_2q_gates_qiskit(original_circuit)
 
-            for translating_method in translating_methods:
-                for gate_set in gate_sets:
-                    gates = []
-                    tq_gates = []
-                    for _ in range(num_samples):
-                        transpiled_circuit = translate(original_circuit, translating_method, gate_set)
-                        #transpiled_total_gates = count_total_gates_qiskit(transpiled_circuit)
-                        gates.append(get_resource_overhead_total_gates(original_circuit, transpiled_circuit))
-                        tq_gates.append(get_resource_overhead_2q_gates(original_circuit, transpiled_circuit))
+                for translating_method in translating_methods:
+                    for gate_set in gate_sets:
+                        gates = []
+                        tq_gates = []
+                        for _ in range(num_samples):
+                            transpiled_circuit = translate(original_circuit, translating_method, gate_set, level)
+                            #transpiled_total_gates = count_total_gates_qiskit(transpiled_circuit)
+                            gates.append(get_resource_overhead_total_gates(original_circuit, transpiled_circuit))
+                            tq_gates.append(get_resource_overhead_2q_gates(original_circuit, transpiled_circuit))
 
-                    gates = np.array(gates)
-                    tq_gates = np.array(tq_gates)
-                    result_data = {
-                        "backend": backend_name,
-                        "backend_size": backend_size,
-                        "code": code_name,
-                        "distance": d,
-                        "cycles": cycles if cycles else d,
-                        "state": state,
-                        "translating_method": translating_method or "N/A",
-                        "gate_set": gate_set or "N/A",
-                        "original_total_gates": original_total_gates,
-                        "original_2q_gates": original_2q_gates,
-                        "gate_overhead_mean": np.mean(gates),
-                        "gate_overhead_var": np.var(gates),
-                        "tq_gate_overhead_mean": np.mean(tq_gates),
-                        "tq_gate_overhead_var": np.var(tq_gates),
-                    }
+                        gates = np.array(gates)
+                        tq_gates = np.array(tq_gates)
+                        result_data = {
+                            "backend": backend_name,
+                            "backend_size": backend_size,
+                            "code": code_name,
+                            "distance": d,
+                            "cycles": cycles if cycles else d,
+                            "state": state,
+                            "translating_method": f"{translating_method}_{level}" or "N/A",
+                            "gate_set": gate_set or "N/A",
+                            "original_total_gates": original_total_gates,
+                            "original_2q_gates": original_2q_gates,
+                            "gate_overhead_mean": np.mean(gates),
+                            "gate_overhead_var": np.var(gates),
+                            "tq_gate_overhead_mean": np.mean(tq_gates),
+                            "tq_gate_overhead_var": np.var(tq_gates),
+                        }
 
-                    with lock:
-                        save_results_to_csv(result_data, experiment_name)
+                        with lock:
+                            save_results_to_csv(result_data, experiment_name)
 
-    except Exception as e:
-        logging.error(
-            f"{experiment_name} | Failed to run experiment for code {code_name}, backend {backend_name}: {e}"
-        )
+        except Exception as e:
+            logging.error(
+                f"{experiment_name} | Failed to run experiment for code {code_name}, backend {backend_name}: {e}"
+            )
 
 
 if __name__ == "__main__":
