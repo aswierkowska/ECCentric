@@ -1,6 +1,0 @@
-backend,backend_size,code,decoder,distance,cycles,num_samples,error_type,error_scale,error_probability,logical_error_rate,layout_method,routing_method,translating_method,gate_overhead,tq_gate_overhead,swap_overhead
-real_nighthawk,,steane,bposd,9,9,1000,real_flamingo,10,,0.021000,N/A,sabre,N/A,0,0,5608
-real_nighthawk,,hh,bposd,9,9,1000,real_flamingo,10,,0.002000,N/A,sabre,N/A,0,0,6021
-real_nighthawk,,surface,bposd,11,11,1000,real_flamingo,10,,0.000000,N/A,sabre,N/A,0,0,7985
-real_nighthawk,,gross,bposd,12,12,1000,real_flamingo,10,,0.000000,N/A,sabre,N/A,0,0,18503
-real_nighthawk,,color,bposd,11,11,1000,real_flamingo,10,,0.003000,N/A,sabre,N/A,0,0,9614

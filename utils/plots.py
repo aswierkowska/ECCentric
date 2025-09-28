@@ -754,7 +754,7 @@ def generate_swap_overhead_norm_plot(df_path, backend_label, total_columns=3):
 
     fig, axes = plt.subplots(
         n_rows, n_cols,
-        figsize=(18, 4),
+        figsize=(18, HEIGHT_FIGSIZE),
         sharey=True,
         constrained_layout=True
     )
@@ -932,13 +932,14 @@ def generate_normalized_gate_ovehead(df_path):
     df = pd.read_csv(df_path)
     method_label_map = {
         "tket": "tket",
+        "tket_optimized": "tket_optimized",
         "qiskit": "qiskit",
         "qiskit_optimized": "qiskit_optimized",
     }
     df["translating_method"] = df["translating_method"].map(method_label_map)
     
     gate_sets = ["ibm_heron", "h2"]
-    translation_methods = ["tket", "qiskit", "qiskit_optimized"]
+    translation_methods = ["tket", "tket_optimized", "qiskit", "qiskit_optimized"]
     df = df[df["gate_set"].isin(gate_sets) & df["translating_method"].isin(translation_methods)]
 
     df["code"] = df["code"].apply(lambda x: code_rename_map.get(x.lower(), x.capitalize()))
@@ -969,14 +970,16 @@ def generate_normalized_gate_ovehead(df_path):
     qiskit_color = base_palette[0]  # shared base for both Qiskits
     tket_color = base_palette[1]
     optimized_qiskit_color = tuple(min(1, c + 0.2) for c in qiskit_color)
+    optimized_tket_color = tuple(min(1, c + 0.2) for c in tket_color)
 
     # Colors and hatches
     color_map = {
         "tket": tket_color,
         "qiskit": qiskit_color,
         "qiskit_optimized": optimized_qiskit_color,
+        "tket_optimized": optimized_tket_color,
     }
-    hatches = ["\\", "/", "//"]  # different hatches per method
+    hatches = ["\\", "\\\\", "/", "//"]  # different hatches per method
 
     # Sort and format code labels
     codes = sorted(df["code"].unique())
@@ -986,6 +989,7 @@ def generate_normalized_gate_ovehead(df_path):
     x = np.arange(len(codes))
     method_labels = {
         "tket": "TKET",
+        "tket_optimized": "TKET Optimized",
         "qiskit": "Qiskit",
         "qiskit_optimized": "Qiskit Optimized"
     }
@@ -1013,7 +1017,7 @@ def generate_normalized_gate_ovehead(df_path):
                 label=method_labels[method]
             )
 
-        ax.set_title(f"({chr(99 + i)}) Gate Overhead ({'IBM Heron' if gate_set == 'ibm_heron' else 'H2'})", 
+        ax.set_title(f"Gate Overhead ({'IBM Heron' if gate_set == 'ibm_heron' else 'H2'})", 
                      fontsize=18, fontweight='bold', loc='left')
         axes[0].set_ylabel("Norm. Gate Overhead", fontsize=16)
         axes[0].tick_params(axis='y', labelsize=16)
@@ -1046,7 +1050,7 @@ def generate_normalized_gate_ovehead(df_path):
         )
 
     # Legend and layout
-    axes[1].legend(labels=['TKET', 'Qiskit', 'Qiskit Optimized'], fontsize=16, ncol=3)
+    axes[1].legend(labels=['TKET', 'TKET Opt.', 'Qiskit', 'Qiskit Opt.'], fontsize=16, ncol=4)
     plt.yticks(fontsize=20)
     plt.tight_layout()
 
@@ -1139,6 +1143,7 @@ def generate_plot_variance_two(low_noise_csv, high_noise_csv):
 
 if __name__ == '__main__':
     size = "experiment_results/Size_full/results.csv"
+    size_grid = "experiment_results/Size_grid/results.csv"
     connectivity = "experiment_results/Connectivity_small/results.csv"
     topology = "experiment_results/Topology/results.csv"
     path = "experiment_results"
@@ -1147,15 +1152,15 @@ if __name__ == '__main__':
     variance_high = "experiment_results/Variance_noise_100/results.csv"
     variance_low = "experiment_results/Variance_noise_10/results.csv"
     gate_overhead = "experiment_results/Translation/results.csv"
-    #generate_size_plot(size)
+    #generate_size_plot(size_grid)
     #generate_connectivity_plot(connectivity)
     #generate_topology_plot(topology)
     #generate_plot_variance(variance_high)
     #generate_plot_variance(variance_low)
-    generate_technology_plot(path)
+    #generate_technology_plot(path)
     #generate_dqc_plot(path)
     #generate_swap_overhead_plot(df_grid, "Grid")
     #generate_swap_overhead_norm_plot(df_grid, "Grid")
     #generate_swap_overhead_plot(df_hh, "Heavy-Hex")
     #generate_plot_variance_two(low_noise_csv=variance_low, high_noise_csv=variance_high)
-    #generate_normalized_gate_ovehead(gate_overhead)
+    generate_normalized_gate_ovehead(gate_overhead)
