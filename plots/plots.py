@@ -1,92 +1,4 @@
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-import os
-
-# Marker styles for different codes
-marker_styles = {
-    'gross': 'o',
-    'bacon': 's',
-    'hh': '^',
-    'surface': 'D',
-    'steane': 'X',
-    'color': '*',
-    'other': ''
-}
-
-# Code display names
-code_rename_map = {
-    'bacon': 'Bacon-Shor',
-    'hh': 'Heavy-hex',
-    'gross': 'Gross'
-}
-
-# Error type mapping
-error_type_map = {
-    'Constant': 'constant',
-    'SI1000': 'modsi1000'
-}
-
-# Backend display names
-backend_rename_map = {
-    "real_willow": "Willow",
-    "real_infleqtion": "Infleqtion",
-    "real_nsinfleqtion": "Infleqtion (w/o s.)",
-    "real_nsapollo": "Apollo (w/o s.)",
-    "real_apollo": "Apollo",
-    "real_flamingo": "Flamingo",
-    "real_nighthawk": "Nighthawk"
-}
-
-# Color palette and hatches for bars
-code_palette = sns.color_palette("pastel", n_colors=6)
-code_hatches = ["/", "\\", "//", "++", "xx", "**"]
-
-# Figure sizes and font
-WIDE_FIGSIZE = 6
-HEIGHT_FIGSIZE = 2.2
-FONTSIZE = 12
-BAR_WIDTH = 0.2  # constant bar width for consistency with size plot
-group_spacing = 0.4
-
-# Highlight backend sizes for specific codes and error types
-HIGHLIGHT = {
-    ('surface', 'Constant'): [400, 500],
-    ('hh', 'Constant'): [450],
-    ('color', 'Constant'): [400, 500],
-    ('bacon', 'Constant'): [400, 450],
-    ('surface', 'SI1000'): [400, 500],
-    ('hh', 'SI1000'): [450],
-    ('color', 'SI1000'): [400, 500],
-    ('bacon', 'SI1000'): [400, 450],
-}
-
-
-# Matplotlib rcParams settings
-tex_fonts = {
-    # Use LaTeX to write all text
-    # "text.usetex": True,
-    "font.family": "serif",
-    # Font sizes
-    "axes.labelsize": FONTSIZE,
-    "font.size": FONTSIZE,
-    "legend.fontsize": FONTSIZE - 2,
-    "xtick.labelsize": FONTSIZE - 2,
-    "ytick.labelsize": FONTSIZE - 2,
-    "axes.titlesize": 10,
-    # Line and marker styles
-    "lines.linewidth": 2,
-    "lines.markersize": 6,
-    "lines.markeredgewidth": 1.5,
-    "lines.markeredgecolor": "black",
-    # Error bar cap size
-    "errorbar.capsize": 3,
-}
-
-plt.rcParams.update(tex_fonts)
-plt.rcParams['pdf.fonttype'] = 42
-plt.rcParams['ps.fonttype'] = 42
+from utils import *
 
 def generate_size_plot(df_path):
     df = pd.read_csv(df_path)
@@ -258,7 +170,7 @@ def generate_connectivity_plot(df_path):
     # axes formatting
     ax.set_xticks(x + BAR_WIDTH * (n_codes - 1) / 2)
     ax.set_xticklabels([b.replace("custom_", "").capitalize() for b in backends], fontsize=FONTSIZE - 2)
-    ax.set_ylabel("Logical Error Rate (Log)", fontsize=FONTSIZE)
+    ax.set_ylabel("Log. Err. Rate (Log)", fontsize=FONTSIZE)
     ax.set_yscale("log")
     ax.grid(axis="y")
     ax.set_axisbelow(True)
@@ -296,14 +208,15 @@ def generate_connectivity_plot(df_path):
 
 def generate_topology_plot(df_path):
     df = pd.read_csv(df_path)
+    df = df[df["backend"] != "real_infleqtion"]
     df["backend"] = df["backend"].replace(backend_rename_map)
     df["code"] = df["code"].apply(lambda x: code_rename_map.get(x.lower(), x.capitalize()))
     df["std"] = np.sqrt(df["logical_error_rate"] * (1 - df["logical_error_rate"]) / df["num_samples"])
 
     codes = sorted(df["code"].unique())
     backends = df["backend"].unique()
+    backends = backends[::-1]
     # reorder backends same as original
-    backends = [backends[3], backends[1], backends[0], backends[2]]
     n_backends = len(backends)
     n_codes = len(codes)
 
@@ -340,7 +253,7 @@ def generate_topology_plot(df_path):
     # axes formatting
     ax.set_xticks(x + BAR_WIDTH * (n_codes - 1) / 2)
     ax.set_xticklabels(backends, fontsize=FONTSIZE - 2)
-    ax.set_ylabel("Logical Error Rate (Log)", fontsize=FONTSIZE)
+    ax.set_ylabel("Log. Err. Rate (Log)", fontsize=FONTSIZE)
     ax.set_yscale("log")
     ax.grid(axis="y")
     ax.set_axisbelow(True)
@@ -446,7 +359,7 @@ def generate_technology_plot(path):
         # axes formatting
         ax.set_xticks(x + BAR_WIDTH * (n_codes - 1) / 2)
         ax.set_xticklabels(backends, fontsize=FONTSIZE - 2)
-        ax.set_ylabel("Logical Error Rate (Log)", fontsize=FONTSIZE)
+        ax.set_ylabel("Log. Error Rate (Log)", fontsize=FONTSIZE)
         ax.set_yscale("log")
         ax.grid(axis="y")
         ax.set_axisbelow(True)
@@ -486,106 +399,108 @@ def generate_technology_plot(path):
 
 
 
-def generate_dqc_plot(path):
-    datasets_normal = [
-        ("DQC", "DQC Full Size"),
-        ("DQC_1_QPU", "DQC 1 QPU Size")
-    ]
+def generate_dqc_plot(csv_path):
+    """
+    Generate two DQC plots from a single CSV file.
+    X-axis: codes, two bars per code corresponding to backends.
+    Produces one plot for error_probability=1 and one for error_probability=10.
+    Figure size, fonts, and layout match topology plots.
+    """
+    df = pd.read_csv(csv_path)
+    df = df[df["routing_method"] != "basic"]
 
-    datasets_lower = [
-        ("DQC_LOWER", "DQC Full Size (Lower)"),
-        ("DQC_1_QPU_LOWER", "DQC 1 QPU Size (Lower)")
-    ]
+    # Apply standard renaming
+    df["backend"] = df["backend"].replace(backend_rename_map)
+    df["code"] = df["code"].apply(lambda x: code_rename_map.get(x.lower(), x.capitalize()))
 
-    all_dataset_groups = [
-        (datasets_normal, "Normal"),
-        (datasets_lower, "Lower")
-    ]
-
-    dfs = []
-
-    # Load all datasets (normal + lower)
-    for dataset_group, _ in all_dataset_groups:
-        for folder, label in dataset_group:
-            tech_path = os.path.join(path, folder, "results.csv")
-            df = pd.read_csv(tech_path)
-            df["backend"] = df["backend"].replace(backend_rename_map)
-            df["code"] = df["code"].apply(lambda x: code_rename_map.get(x.lower(), x.capitalize()))
-            df["dataset"] = label
-            dfs.append(df)
-
-    df = pd.concat(dfs, ignore_index=True)
-
-    # 🚨 Exclude "Gross" completely
-    df = df[df["code"].str.lower() != "gross"]
-
-    # Codes
+    # Codes and ordering
     codes = sorted(df["code"].unique())
     df["code"] = pd.Categorical(df["code"], categories=codes, ordered=True)
 
-    sns.set(style="whitegrid")
-    fig, axes = plt.subplots(1, 2, figsize=(10, 3), sharey=True)  # shorter height
+    backends = df["backend"].unique()
+    n_backends = len(backends)
+    n_codes = len(codes)
 
-    bar_width = 0.1  # thinner bars
+    for err_prob in [1, 10]:
+        sub_df = df[df["error_probability"] == err_prob]
+        if sub_df.empty:
+            print(f"⚠️ No data for error_probability={err_prob}, skipping.")
+            continue
 
-    # One subplot per group (Normal, Lower)
-    for ax, (dataset_group, title_suffix) in zip(axes, all_dataset_groups):
-        datasets_labels = [label for _, label in dataset_group]
+        fig, ax = plt.subplots(figsize=(WIDE_FIGSIZE, HEIGHT_FIGSIZE))
 
-        # Filter only the subset for this group
-        subdf = df[df["dataset"].isin(datasets_labels)].copy()
-        subdf["dataset"] = pd.Categorical(subdf["dataset"], categories=datasets_labels, ordered=True)
+        # X positions for codes
+        x = np.arange(n_codes)
+        total_bar_width = BAR_WIDTH * n_backends
+        offsets = np.linspace(-total_bar_width/2 + BAR_WIDTH/2,
+                              total_bar_width/2 - BAR_WIDTH/2,
+                              n_backends)
 
-        x = np.arange(len(codes)) * 0.5
-
-        for j, dataset_label in enumerate(datasets_labels):
-            means = []
+        # Plot bars for each backend
+        for i, backend in enumerate(backends):
+            means, stds = [], []
             for code in codes:
-                subset = subdf[(subdf["code"] == code) & (subdf["dataset"] == dataset_label)]
-                means.append(subset["logical_error_rate"].mean() if not subset.empty else 0)
+                row = sub_df[(sub_df["code"] == code) & (sub_df["backend"] == backend)]
+                if not row.empty:
+                    mean_val = row["logical_error_rate"].mean()
+                    means.append(mean_val)
+                    stds.append(np.sqrt(mean_val * (1 - mean_val) / row["num_samples"].sum()))
+                else:
+                    means.append(0)
+                    stds.append(0)
 
             ax.bar(
-                x + (j - 0.5) * bar_width,
+                x + offsets[i],
                 means,
-                width=bar_width,
-                color=code_palette[j % len(code_palette)],
-                hatch='/' if j == 0 else '\\',
+                yerr=stds,
+                width=BAR_WIDTH,
+                color=code_palette[i % len(code_palette)],
+                hatch=code_hatches[i % len(code_hatches)],
                 edgecolor="black",
-                label=dataset_label
+                label=backend
             )
 
+        # Axes formatting
         ax.set_xticks(x)
-        ax.set_xticklabels(codes, rotation=0, ha="center", fontsize=12)
-        if title_suffix == "Lower":
-            ax.set_title(f"b) Noise 10%",
-                     loc='left', fontweight='bold', fontsize=14)
-        elif title_suffix == "Normal":
-            ax.set_title(f"a) Noise 100%",
-                     loc='left', fontweight='bold', fontsize=14)
-        # No log scale anymore
+        ax.set_xticklabels(codes, fontsize=FONTSIZE - 2)
+        ax.set_ylabel("Logical Error Rate", fontsize=FONTSIZE)
+        ax.grid(axis="y")
+        ax.set_axisbelow(True)
 
-    axes[0].set_ylabel("Logical Error Rate", fontsize=12)
+        device = csv_path.split("/")[1].split("_")[1]
 
-    custom_labels = ["Full Size", "1 QPU Size"]
+        if err_prob == 10:
+            ax.set_title(f"IBM {device} (10%)", loc="left", fontsize=12, fontweight="bold")
+        else:
+            ax.set_title(f"IBM {device} (100%)", loc="left", fontsize=12, fontweight="bold")
 
-    axes[1].legend(
-        labels=custom_labels,
-        loc='center left',         # stick to the left side of the bbox
-        bbox_to_anchor=(0.58, 0.86),  # (x=1.02 → just outside, y=0.5 → vertically centered)
-        fontsize=12
-    )
+        ax.text(1.0, 1.14, "Lower is better ↓", transform=ax.transAxes,
+                fontsize=12, fontweight='bold', color='blue', va='top', ha='right')
 
-    fig.text(-0.05, 1.08, 'Lower is better ↓', transform=axes[1].transAxes,
-             fontsize=12, fontweight='bold', color="blue", va='top', ha='right')
+        # Legend
+        handles, labels = ax.get_legend_handles_labels()
+        unique_labels = {}
+        for h, l in zip(handles, labels):
+            if l not in unique_labels:
+                unique_labels[l] = h
 
-    fig.text(1.0, 1.08, 'Lower is better ↓', transform=axes[1].transAxes,
-             fontsize=12, fontweight='bold', color="blue", va='top', ha='right')
+        plt.subplots_adjust(bottom=0.3)
+        fig.legend(
+            handles=list(unique_labels.values()),
+            labels=list(unique_labels.keys()),
+            loc="lower center",
+            bbox_to_anchor=(0.5, -0.03),
+            ncol=len(unique_labels),
+            frameon=False
+        )
 
-    #plt.subplots_adjust(bottom=0.25, wspace=0.15)
-    plt.subplots_adjust(bottom=0.25, wspace=0.05)
-    os.makedirs("data", exist_ok=True)
-    plt.savefig("data/dqc_flamingo.pdf", format="pdf", bbox_inches="tight")
-    plt.close()
+        # Save figure
+        os.makedirs("data", exist_ok=True)
+        plt.savefig(f"data/dqc_{device}_{err_prob}.pdf", format="pdf")
+        plt.close(fig)
+
+
+
 
 
 def generate_swap_overhead_plot(df_path, backend_label, total_columns=3):
@@ -1120,7 +1035,7 @@ def generate_plot_variance_two(low_noise_csv, high_noise_csv):
 
     # --- Left: High noise ---
     plot_variance(axes[0], df_high, "Noise 100%", show_labels=True)
-    axes[0].set_ylabel("Logical Error Rate (Log)", fontsize=11)
+    axes[0].set_ylabel("Log. Error Rate (Log)", fontsize=11)
 
     # --- Right: Low noise ---
     plot_variance(axes[1], df_low, "Noise 10%")
@@ -1152,15 +1067,18 @@ if __name__ == '__main__':
     variance_high = "experiment_results/Variance_noise_100/results.csv"
     variance_low = "experiment_results/Variance_noise_10/results.csv"
     gate_overhead = "experiment_results/Translation/results.csv"
+    dqc_flamingo = "experiment_results/DQC_Flamingo/results.csv"
+    dqc_nighthawk = "experiment_results/DQC_Nighthawk/results.csv"
     #generate_size_plot(size_grid)
     #generate_connectivity_plot(connectivity)
     #generate_topology_plot(topology)
     #generate_plot_variance(variance_high)
     #generate_plot_variance(variance_low)
-    #generate_technology_plot(path)
-    #generate_dqc_plot(path)
+    generate_technology_plot(path)
+    #generate_dqc_plot(dqc_flamingo)
+    #generate_dqc_plot(dqc_nighthawk)
     #generate_swap_overhead_plot(df_grid, "Grid")
     #generate_swap_overhead_norm_plot(df_grid, "Grid")
     #generate_swap_overhead_plot(df_hh, "Heavy-Hex")
     #generate_plot_variance_two(low_noise_csv=variance_low, high_noise_csv=variance_high)
-    generate_normalized_gate_ovehead(gate_overhead)
+    #generate_normalized_gate_ovehead(gate_overhead)
