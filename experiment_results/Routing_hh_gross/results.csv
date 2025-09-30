@@ -1,0 +1,4 @@
+backend,backend_size,code,distance,cycles,state,routing_method,layout_method,gate_overhead_mean,gate_overhead_var,tq_gate_overhead_mean,tq_gate_overhead_var,swap_overhead_mean,swap_overhead_var
+custom_heavyhex,291,gross,145,145,,sabre,dense,90271.74,312405.35839999997,90271.74,312405.35839999997,90271.74,312405.35839999997
+custom_heavyhex,291,gross,145,145,,sabre,trivial,89788.115,303572.66377499996,89788.115,303572.66377499996,89788.115,303572.66377499996
+custom_heavyhex,291,gross,145,145,,sabre,sabre,74511.898,41787.145596,74511.898,41787.145596,74511.898,41787.145596

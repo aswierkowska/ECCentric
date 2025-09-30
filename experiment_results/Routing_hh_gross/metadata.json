@@ -1,0 +1,23 @@
+{
+    "name": "Routing_hh_gross",
+    "num_samples": 1000,
+    "backends": [
+        "custom_heavyhex"
+    ],
+    "backends_sizes": [
+        291
+    ],
+    "codes": [
+        "gross"
+    ],
+    "routing_methods": [
+        "basic",
+        "sabre",
+        "stochastic"
+    ],
+    "layout_methods": [
+        "dense",
+        "trivial",
+        "sabre"
+    ]
+}
