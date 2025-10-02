@@ -8,11 +8,11 @@
         291
     ],
     "codes": [
-        "gross"
+        "color",
+        "surface",
+        "hh"
     ],
     "routing_methods": [
-        "basic",
-        "sabre",
         "stochastic"
     ],
     "layout_methods": [
