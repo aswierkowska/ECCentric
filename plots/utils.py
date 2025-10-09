@@ -30,6 +30,14 @@ error_type_map = {
     'SI1000': 'modsi1000'
 }
 
+decoder_map = {
+    'mwpm': 'MWPM',
+    'bposd_faster': 'BP-OSD Batch',
+    'bposd_gross': 'BP-OSD PCM',
+    'bposd': 'BP-OSD',
+    'chromobius': 'Chromobius'
+}
+
 # Backend display names
 backend_rename_map = {
     "real_willow": "Willow",
