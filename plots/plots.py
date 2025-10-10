@@ -123,6 +123,123 @@ def generate_size_plot(df_path):
     plt.savefig("data/size.pdf", format="pdf")
     plt.close(fig)
 
+def generate_size_plot_two(df_path):
+    df = pd.read_csv(df_path)
+    error_types = ["SI1000", "Constant"]
+    error_prob = 0.008  # single probability
+    backend = "custom_full"
+
+    default_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    all_codes = sorted([c.lower() for c in df['code'].unique()])
+    code_color = {c: default_colors[i % len(default_colors)] for i, c in enumerate(all_codes)}
+
+    letters = ["a)", "b)"]
+
+    n_rows, n_cols = 1, 2
+    fig, axes = plt.subplots(
+        n_rows, n_cols,
+        figsize=(WIDE_FIGSIZE * 2, HEIGHT_FIGSIZE),
+        sharey=True,
+        sharex=False,
+        gridspec_kw={'wspace': 0.05}
+    )
+
+    unique_labels = {}
+
+    for col, et in enumerate(error_types):
+        ax = axes[col]
+        original_et = error_type_map.get(et, et.lower())
+
+        # get xticks for this error type
+        all_xticks = sorted(df.loc[
+            (df['backend'] == backend) & (df['error_type'] == original_et),
+            'backend_size'
+        ].unique())
+
+        subset = df[
+            (df['backend'] == backend) &
+            (df['error_type'] == original_et) &
+            (df['error_probability'] == error_prob)
+        ]
+
+        for code, group in subset.groupby('code'):
+            code_key = code.lower()
+            code_display = code_rename_map.get(code_key, code.capitalize())
+            marker = marker_styles.get(code_key, marker_styles['other'])
+            group_sorted = group.sort_values('backend_size')
+
+            xs = group_sorted['backend_size'].to_numpy()
+            ys = group_sorted['logical_error_rate'].to_numpy()
+
+            line = ax.plot(
+                xs, ys,
+                label=code_display,
+                marker=marker,
+                color=code_color[code_key],
+                markeredgecolor="none",
+            )[0]
+
+            # highlight selected points
+            highlight_x = HIGHLIGHT.get((code_key, et), [])
+            if highlight_x:
+                sel = np.isin(xs, highlight_x)
+                ax.plot(
+                    xs[sel], ys[sel],
+                    linestyle="None",
+                    marker=marker,
+                    markersize=line.get_markersize() * 1.4,
+                    markerfacecolor=code_color[code_key],
+                    markeredgecolor="black",
+                    markeredgewidth=1.5,
+                    color=code_color[code_key],
+                    zorder=line.get_zorder() + 2,
+                    label="_nolegend_",
+                )
+
+        # set consistent ticks
+        ax.set_xticks(all_xticks)
+        ax.set_xticklabels(all_xticks, fontsize=FONTSIZE - 2)
+        ax.set_ylim(0, 0.65)
+        ax.grid(True)
+
+        # title
+        letter = letters[col]
+        title_et = "Const." if et == "Constant" else et
+        ax.set_title(f"{letter} {title_et} p={error_prob}",
+                     loc="left", fontsize=12, fontweight="bold")
+
+        # ylabel only on left plot
+        if col == 0:
+            ax.set_ylabel("Logical Error Rate", fontsize=FONTSIZE)
+
+        # blue annotation
+        ax.text(
+            1.0, 1.12, "Lower is better ↓",
+            transform=ax.transAxes,
+            fontsize=12, fontweight="bold",
+            color="blue", va="top", ha="right"
+        )
+
+        # collect legend handles
+        handles, labels = ax.get_legend_handles_labels()
+        for h, l in zip(handles, labels):
+            if l not in unique_labels and l != "_nolegend_":
+                unique_labels[l] = h
+
+    # adjust layout and legend
+    plt.subplots_adjust(left=0.08, right=0.88, bottom=0.18, top=0.9)
+    fig.legend(
+        handles=list(unique_labels.values()),
+        labels=list(unique_labels.keys()),
+        loc="lower center",
+        bbox_to_anchor=(0.94, 0.2),
+        #ncol=len(unique_labels),
+        frameon=True
+    )
+
+    os.makedirs("data", exist_ok=True)
+    plt.savefig(f"data/size_{error_prob}.pdf", format="pdf")
+    plt.close(fig)
 
 
 
@@ -1425,6 +1542,165 @@ def generate_gate_overhead(df_path):
     plt.savefig("data/gate_overhead.pdf", format="pdf")
     plt.close(fig)
 
+def generate_overhead_2x2(df_path):
+    """
+    Generate one PDF with 2x2 plots:
+    (a,b)  Gate Overhead   [IBM Heron, H2]
+    (c,d)  Normalized Gate Overhead   [IBM Heron, H2]
+    Shared X-axes between rows and a shared vertical legend on the right.
+    """
+
+    df = pd.read_csv(df_path)
+    method_label_map = {
+        "tket": "tket",
+        "tket_optimized": "tket_optimized",
+        "qiskit": "qiskit",
+        "qiskit_optimized": "qiskit_optimized",
+    }
+    df["translating_method"] = df["translating_method"].map(method_label_map)
+
+    gate_sets = ["ibm_heron", "h2"]
+    df = df[df["gate_set"].isin(gate_sets) & df["translating_method"].isin(method_label_map)]
+    df["code"] = df["code"].apply(lambda x: code_rename_map.get(x.lower(), x.capitalize()))
+
+    # --- Colors and styles ---
+    qiskit_base, tket_base = code_palette[0], code_palette[1]
+    qiskit_opt = tuple(min(1, c + 0.25) for c in qiskit_base)
+    tket_opt = tuple(min(1, c + 0.25) for c in tket_base)
+
+    color_map = {
+        "tket": tket_base,
+        "tket_optimized": tket_opt,
+        "qiskit": qiskit_base,
+        "qiskit_optimized": qiskit_opt,
+    }
+    hatches = ["\\", "//", "/", "\\\\"]
+
+    layout_styles = {
+        method: (color_map[method], hatches[i % len(hatches)])
+        for i, method in enumerate(method_label_map)
+    }
+    method_labels = {
+        "tket": "TKET",
+        "tket_optimized": "TKET Opt.",
+        "qiskit": "Qiskit",
+        "qiskit_optimized": "Qiskit Opt."
+    }
+
+    methods = ["qiskit", "qiskit_optimized", "tket", "tket_optimized"]
+
+    # --- Create figure with 2x2 layout ---
+    fig, axes = plt.subplots(
+        2, 2,
+        figsize=(2 * WIDE_FIGSIZE, 1.7 * HEIGHT_FIGSIZE),
+        sharex="col",  # ✅ share x-axis per column
+        sharey="row"   # still share y per row
+    )
+
+    letters = ["(a)", "(b)", "(c)", "(d)"]
+
+    for row, mode in enumerate(["overhead", "normalized"]):
+        for col, gate_set in enumerate(gate_sets):
+            ax = axes[row, col]
+            subset = df[df["gate_set"] == gate_set]
+            if subset.empty:
+                print(f"⚠️ No data for {gate_set}, skipping.")
+                continue
+
+            codes = sorted(subset["code"].unique())
+            x = np.arange(len(codes))
+
+            # Pivot
+            pivot = subset.pivot(index="code", columns="translating_method", values="gate_overhead_mean")
+
+            if mode == "normalized":
+                total_gates = subset.pivot(index="code", columns="translating_method", values="original_total_gates")
+                for method in methods:
+                    if method in pivot.columns and method in total_gates.columns:
+                        pivot[method] = pivot[method] / total_gates[method]
+
+            # --- Bars ---
+            for j, method in enumerate(methods):
+                if method not in pivot.columns:
+                    continue
+                values = pivot.loc[codes, method].values
+                ax.bar(
+                    x + j * BAR_WIDTH,
+                    values,
+                    width=BAR_WIDTH,
+                    label=method_labels[method],
+                    color=layout_styles[method][0],
+                    hatch=layout_styles[method][1],
+                    edgecolor="black",
+                )
+
+            # Titles
+            device_label = "IBM Heron" if gate_set == "ibm_heron" else "H2"
+            ylabel = "Gate Overhead" if mode == "overhead" else "Norm. Overhead"
+            letter = letters[row * 2 + col]
+
+            ax.set_title(f"{letter} {device_label}",
+                         fontsize=12, fontweight="bold", loc="left")
+
+            # Set x-ticks only for bottom row (shared x)
+            if row == 1:
+                ax.set_xticks(x + (BAR_WIDTH * (len(methods) - 1)) / 2)
+                ax.set_xticklabels(codes, fontsize=FONTSIZE - 2, rotation=30, ha="right")
+            else:
+                ax.set_xticks([])
+                ax.set_xticklabels([])
+
+            ax.tick_params(axis="y", labelsize=FONTSIZE - 2)
+
+            if col == 0:
+                ax.set_ylabel(ylabel, fontsize=FONTSIZE)
+
+            ax.grid(axis="y")
+            ax.set_axisbelow(True)
+
+            # limits per row
+            if mode == "normalized":
+                ax.set_ylim(0, 12)
+
+            # annotation
+            ax.text(
+                1.0, 1.14, "Lower is better ↓",
+                transform=ax.transAxes,
+                fontsize=12, fontweight="bold", color="blue",
+                va="top", ha="right"
+            )
+
+    # Layout adjustments
+    plt.subplots_adjust(left=0.08, bottom=0.22, right=0.98, top=0.92, wspace=0.15, hspace=0.25)
+
+    # --- Shared vertical legend ---
+    handles = [
+        plt.Rectangle((0, 0), 1, 1,
+                      facecolor=layout_styles[m][0],
+                      edgecolor="black",
+                      hatch=layout_styles[m][1])
+        for m in methods
+    ]
+    labels = [method_labels[m] for m in methods]
+    fig.legend(
+        handles, labels,
+        loc="center left",
+        bbox_to_anchor=(0.56, 0.87),
+        fontsize=FONTSIZE,
+        frameon=False,
+        ncol=4,
+        columnspacing=0.8,               # ⬅️ reduce horizontal space between columns
+        handletextpad=0.4,               # ⬅️ reduce space between patch and text
+        borderaxespad=0.3,               # ⬅️ reduce distance from axes
+        #handlelength=1.0  
+    )
+
+    os.makedirs("data", exist_ok=True)
+    plt.savefig("data/gate_overhead.pdf", format="pdf")
+    plt.close(fig)
+
+
+
 def generate_plot_variance_two(low_noise_csv, high_noise_csv):
     # --- Preprocess function ---
     def preprocess(path):
@@ -1511,7 +1787,7 @@ def generate_decoder_plot(df_path):
     # Read data
     df = pd.read_csv(df_path)
     if "error_type" in df.columns:
-        df = df[df["error_type"] == "modsi1000"]
+        df = df[df["error_type"] == "constant"]
 
     # Optional renaming if you have a mapping
     if "code_rename_map" in globals():
@@ -1589,8 +1865,8 @@ def generate_decoder_plot(df_path):
     ax.set_xticklabels(codes, fontsize=FONTSIZE - 2)
     ax.set_ylabel("Log. Err. Rate", fontsize=FONTSIZE)
     ax.grid(axis="y")
-    ax.legend(loc="best")
-    plt.savefig("data/decoder_general.pdf", format="pdf")
+    ax.legend(loc="upper right", frameon=False)
+    plt.savefig("data/decoder_general_constant.pdf", format="pdf")
     plt.close(fig)
 
 
@@ -1600,7 +1876,7 @@ def generate_decoder_error_barplot(df_path):
 
     # ✅ Keep only modsi1000 error type
     if "error_type" in df.columns:
-        df = df[df["error_type"] == "modsi1000"]
+        df = df[df["error_type"] == "phenomenological"]
 
     # Optional mappings
     if "decoder_map" in globals():
@@ -1689,7 +1965,7 @@ def generate_decoder_error_barplot(df_path):
         )
 
         # Legend only on first plot
-        if col == 0:
+        if col == 1:
             ax.legend(
                 loc="upper left",
                 bbox_to_anchor=(-0.01, 1.08),  # (x, y) relative to the axes
@@ -1699,10 +1975,107 @@ def generate_decoder_error_barplot(df_path):
 
     plt.tight_layout(rect=[0, 0, 1, 1])
     os.makedirs("data", exist_ok=True)
-    plt.savefig("data/decoder_special.pdf", format="pdf")
+    plt.savefig("data/decoder_special_ph.pdf", format="pdf")
     plt.close(fig)
 
 
+def generate_decoder_plot_time(df_path):
+    """
+    Generate side-by-side bar plots of decoder performance
+    for both error types ("SI1000" and "Constant").
+    Each plot shows logical error rate (bars) with execution time annotated.
+    """
+
+    # --- Load data ---
+    df = pd.read_csv(df_path)
+
+    # Optional renaming
+    if "code_rename_map" in globals():
+        df["code"] = df["code"].apply(lambda x: code_rename_map.get(x.lower(), x.capitalize()))
+    else:
+        df["code"] = df["code"].apply(lambda x: x.capitalize())
+
+    if "decoder_map" in globals():
+        df["decoder"] = df["decoder"].apply(lambda x: decoder_map.get(x, x))
+
+    # --- Compute standard error (optional) ---
+    if {"logical_error_rate", "num_samples"} <= set(df.columns):
+        df["std"] = np.sqrt(df["logical_error_rate"] * (1 - df["logical_error_rate"]) / df["num_samples"])
+    else:
+        df["std"] = 0
+
+    # --- Constants and setup ---
+    error_types = ["modsi1000", "constant"]
+    colors = code_palette
+    fig, axes = plt.subplots(1, 2, figsize=(2 * WIDE_FIGSIZE, HEIGHT_FIGSIZE), sharey=True)
+
+    for ax, etype in zip(axes, error_types):
+        subset = df[df["error_type"].str.lower() == etype.lower()]
+        if subset.empty:
+            print(f"⚠️ No data for error_type={etype}")
+            continue
+
+        codes = sorted(subset["code"].unique())
+        decoders = sorted(subset["decoder"].unique())
+        n_codes = len(codes)
+        n_decoders = len(decoders)
+        x = np.arange(n_codes)
+        offsets = np.linspace(-BAR_WIDTH, BAR_WIDTH, n_decoders)
+
+        # Plot bars
+        for i, decoder in enumerate(decoders):
+            means, stds, times = [], [], []
+            for code in codes:
+                entry = subset[(subset["code"] == code) & (subset["decoder"] == decoder)]
+                if not entry.empty:
+                    means.append(entry["logical_error_rate"].values[0])
+                    stds.append(entry["std"].values[0])
+                    times.append(entry["exec_time"].values[0] if "exec_time" in entry else np.nan)
+                else:
+                    means.append(0)
+                    stds.append(0)
+                    times.append(np.nan)
+                    xpos = x[codes.index(code)] + offsets[i]
+                    ax.text(
+                        xpos, 0.04, "×", color="red", fontsize=16,
+                        ha="center", va="bottom", fontweight="bold"
+                    )
+
+            bars = ax.bar(
+                x + offsets[i],
+                times,
+                yerr=stds,
+                width=BAR_WIDTH,
+                label=decoder,
+                color=colors[i % len(colors)],
+                edgecolor="black"
+            )
+
+        # --- Styling ---
+        if etype == "modsi1000":
+            ax.set_title(f"SI1000 Noise", loc="left", fontsize=FONTSIZE, fontweight="bold")
+        elif etype == "constant":
+            ax.set_title(f"Constant Noise", loc="left", fontsize=FONTSIZE, fontweight="bold")
+        ax.set_xticks(x)
+        ax.set_xticklabels(codes, fontsize=FONTSIZE - 2, rotation=30, ha="right")
+        
+        ax.set_yscale("log")
+        ax.grid(axis="y")
+
+        ax.text(
+            1.0, 1.14, "Lower is better ↓",
+            transform=ax.transAxes,
+            fontsize=FONTSIZE - 1,
+            fontweight="bold",
+            color="blue",
+            va="top", ha="right"
+        )
+    axes[0].set_ylabel("Exec. Time [s]", fontsize=FONTSIZE)
+    axes[1].legend(fontsize=FONTSIZE - 2, frameon=False, loc="upper right", bbox_to_anchor=(1.4, 0.8))
+    plt.subplots_adjust(left=0.08, bottom=0.3, right=0.85, top=0.88, wspace=0.15)
+    os.makedirs("data", exist_ok=True)
+    plt.savefig("data/decoder_time.pdf", format="pdf")
+    plt.close(fig)
 
 
 
@@ -1723,6 +2096,7 @@ if __name__ == '__main__':
     decoder_general = "experiment_results/Decoders/results_general.csv"
     decoder_special = "experiment_results/Decoders/results_special.csv"
     #generate_size_plot(size)
+    #generate_size_plot_two(size)
     #generate_connectivity_plot(connectivity)
     #generate_topology_plot(topology)
     #generate_connectivity_topology_plot(connectivity, topology)
@@ -1739,5 +2113,7 @@ if __name__ == '__main__':
     #generate_plot_variance_two(low_noise_csv=variance_low, high_noise_csv=variance_high)
     #generate_gate_overhead(gate_overhead)
     #generate_normalized_gate_overhead(gate_overhead)
+    #generate_overhead_2x2(gate_overhead)
     generate_decoder_plot(decoder_general)
+    generate_decoder_plot_time(decoder_general)
     generate_decoder_error_barplot(decoder_special)

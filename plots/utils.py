@@ -32,8 +32,8 @@ error_type_map = {
 
 decoder_map = {
     'mwpm': 'MWPM',
-    'bposd_faster': 'BP-OSD Batch',
-    'bposd_gross': 'BP-OSD PCM',
+    'bposd_batch': 'BP-OSD Batch',
+    'bposd_chk': 'BP-OSD PCM',
     'bposd': 'BP-OSD',
     'chromobius': 'Chromobius'
 }
