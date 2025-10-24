@@ -130,6 +130,7 @@ class FakeIBMLoon(BackendV2):
         return endpoints, coupling_map_two
 
     def addStateOfTheArtQubits(self):
+        np.random.seed(123)
         qubit_props = []
         
         for i in range(self._num_qubits):
