@@ -24,7 +24,7 @@ def get_backend(backend: str, backend_size: int):
             backend = FakeIBMFlamingo()
         elif name == "heron":
             backend = FakeIBMHeron()
-        elif name == "mcm_ideal":
+        elif name == "mcm":
             backend = MCMIdealBackend()
         elif name == "loon":
             backend = FakeIBMLoon()

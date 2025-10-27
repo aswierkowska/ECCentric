@@ -119,7 +119,7 @@ if __name__ == "__main__":
         decoders = experiment["decoders"]
         error_types = experiment["error_types"]
         error_probabilities = experiment.get("error_probabilities", [None])
-        cycles = experiment.get("layout_methods", [None])
+        cycles = experiment.get("cycles", [None])
         layout_methods = experiment.get("layout_methods", [None])
         routing_methods = experiment.get("routing_methods", [None])
         translating_methods = experiment.get("translating_methods", [None])
