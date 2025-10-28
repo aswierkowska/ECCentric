@@ -158,7 +158,7 @@ class NoiseModel:
             elif self.sq != 0:
                 post.append_operation("DEPOLARIZE1", targets, self.sq)
             self.add_qubit_error(post, targets, self.get_gate_time(op))
-        elif op.name in TQ_OPS or op.name in SWAP_OPS:
+        elif op.name in TQ_OPS: # TODO or op.name in SWAP_OPS:
             if op.name in self.noisy_gates:
                 p = self.noisy_gates[op.name]
             else:
