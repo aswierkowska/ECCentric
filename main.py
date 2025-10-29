@@ -80,7 +80,11 @@ def run_experiment(
         for error_type in error_types:
             noise_model = get_noise_model(error_type, qt, error_prob, backend)
             noisy_stim_circuit = noise_model.noisy_circuit(stim_circuit)
-            logical_error_rate = decode(code_name, noisy_stim_circuit, num_samples, decoder, backend_name, error_type)
+            
+            lers = []
+            for i in range(20):
+                lers.append(decode(code_name, noisy_stim_circuit, num_samples, decoder, backend_name, error_type))
+            logical_error_rate = min(lers)
 
             result_data = {
                 "backend": backend_name,
