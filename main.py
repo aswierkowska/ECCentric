@@ -66,7 +66,7 @@ def run_experiment(
        
         mappings = {}
 
-        for _ in range(10):
+        for _ in range(50):
             t = run_transpiler(code.qc, backend, layout_method, routing_method)
             mappings[detailed_gate_count_qiskit(t)["swap"]] = t
 
@@ -82,7 +82,7 @@ def run_experiment(
             noisy_stim_circuit = noise_model.noisy_circuit(stim_circuit)
             
             lers = []
-            for i in range(20):
+            for i in range(50):
                 lers.append(decode(code_name, noisy_stim_circuit, num_samples, decoder, backend_name, error_type))
             logical_error_rate = min(lers)
 
