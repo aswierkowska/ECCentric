@@ -15,7 +15,7 @@ class FlamingoNoise(NoiseModel):
         m_time_multiplier = float(m_time_multiplier)
         return NoiseModel(
             sq=0.00025,
-            tq=0.002 / 10, # TODO
+            tq=0.002, #/ 10, # TODO
             measure=0.01 * m_error_multiplier,
             remote=0.03,
             gate_times={
