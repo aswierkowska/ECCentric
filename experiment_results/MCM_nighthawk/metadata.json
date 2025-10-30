@@ -1,0 +1,36 @@
+{
+    "name": "MCM_nighthawk",
+    "num_samples": 100000,
+    "backends": [
+        "real_loon"
+    ],
+    "distances": [
+        3,
+        5,
+        7
+    ],
+    "cycles": [
+        7,
+        35,
+        50
+    ],
+    "codes": [
+        "surface"
+    ],
+    "error_types": [
+        "real_flamingo_0.25_1",
+        "real_flamingo_0.5_1",
+        "real_flamingo_1.0_1",
+        "real_flamingo_2.0_1",
+        "real_flamingo_4.0_1",
+        "real_flamingo_1_0.25",
+        "real_flamingo_1_0.5",
+        "real_flamingo_1_0.75",
+        "real_flamingo_1_1.0",
+        "real_flamingo_1_1.5",
+        "real_flamingo_1_2.0"
+    ],
+    "decoders": [
+        "mwpm"
+    ]
+}
