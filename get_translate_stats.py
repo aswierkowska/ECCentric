@@ -32,7 +32,7 @@ def run_experiment(
     translating_methods,
     gate_sets,
 ):
-    for level in [2, 3]:
+    for level in [0, 2, 3]:
         try:
             backend = get_backend(backend_name, backend_size)
             if d is None:

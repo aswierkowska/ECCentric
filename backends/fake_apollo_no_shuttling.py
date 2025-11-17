@@ -6,7 +6,7 @@ from qiskit.circuit import Parameter
 from qiskit.providers import BackendV2, Options
 from qiskit.visualization import plot_coupling_map
 
-class FakeQuantinuumApolloNoShuttingBackend(BackendV2):
+class FakeQuantinuumApolloNoShuttlingBackend(BackendV2):
     """Fake Quantinnum Apollo Backend without shuttling."""
     
     def __init__(self):

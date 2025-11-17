@@ -1,6 +1,7 @@
 from qiskit_ibm_runtime import QiskitRuntimeService
 from .custom_topologies import get_custom_topology
 from .fake_apollo import FakeQuantinuumApolloBackend
+from .fake_apollo_no_shuttling import FakeQuantinuumApolloNoShuttlingBackend
 from .fake_flamingo import FakeIBMFlamingo
 from .fake_loon import FakeIBMLoon
 from .fake_willow import FakeGoogleWillowBackend
@@ -27,6 +28,8 @@ def get_backend(backend: str, backend_size: int):
             backend = FakeGoogleWillowBackend(extended=True)
         elif name == "apollo":
             backend = FakeQuantinuumApolloBackend()
+        elif name == "nsapollo":
+            backend = FakeQuantinuumApolloNoShuttlingBackend()
         elif name == "infleqtion":
             backend = FakeInfleqtionBackend(extended=True)
         elif name == "nsinfleqtion":

@@ -70,8 +70,6 @@ def run_experiment(
         for i in range(num_samples):
             if translating_method:
                 code.qc = translate(code.qc, translating_method)
-                #TODO: either else here or sth
-<<<<<<< HEAD
             code.qc = run_transpiler(code.qc, backend, layout_method, routing_method)
             qt = QubitTracking(backend, code.qc)
             stim_circuit = get_stim_circuits(
@@ -80,24 +78,7 @@ def run_experiment(
             noise_model = get_noise_model(error_type, qt, error_prob, backend)
             stim_circuit = noise_model.noisy_circuit(stim_circuit)
             error_occured = decode(code_name, stim_circuit, 1, decoder, backend_name, error_type)
-=======
-            print(f"Before transpiler {backend} {layout_method} {routing_method}")
-            code.qc = run_transpiler(code.qc, backend, layout_method, routing_method)
-            print("After transpiler")
-            qt = QubitTracking(backend, code.qc)
-            print("After QT")
-            stim_circuit = get_stim_circuits(
-                code.qc, detectors=detectors, logicals=logicals
-            )[0][0]
-            print("After GET STIM CIRCUIT")
-            noise_model = get_noise_model(error_type, qt, error_prob, backend)
-            print("After get_noise_model")
-            stim_circuit = noise_model.noisy_circuit(stim_circuit)
-            print("After adding noise")
-            print("before decoding")
-            error_occured = decode(code_name, stim_circuit, 1, decoder, backend_name, error_type)
-            print("After decoding")
->>>>>>> variance
+
             if error_occured == None:
                 exit(1)
 

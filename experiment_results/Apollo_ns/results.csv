@@ -1,0 +1,7 @@
+backend,backend_size,code,decoder,distance,cycles,num_samples,error_type,error_probability,logical_error_rate,layout_method,routing_method,translating_method
+real_nsapollo,,gross,bposd,12,12,1000,real_apollo,,0.000,N/A,N/A,N/A
+real_nsapollo,,color,bposd,17,17,1000,real_apollo,,0.000,N/A,N/A,N/A
+real_nsapollo,,surface,bposd,17,17,1000,real_apollo,,0.000,N/A,N/A,N/A
+real_nsapollo,,hh,bposd,17,17,1000,real_apollo,,0.000,N/A,N/A,N/A
+real_nsapollo,,steane,bposd,27,27,1000,real_apollo,,0.005,N/A,N/A,N/A
+real_nsapollo,,bacon,bposd,27,27,1000,real_apollo,,0.000,N/A,N/A,N/A
