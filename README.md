@@ -1,6 +1,6 @@
-# eccentric_bench
+# ECCentric Bench
 
-Eccentric Bench is a project focused on realistic benchmarking Quantum Error Correction Codes.
+Eccentric Bench is a project focused on realistic benchmarking Quantum Error Correction Codes. The preprint of our paper can be found here: https://arxiv.org/abs/2511.01062
 
 ## Installation (Linux)
 
