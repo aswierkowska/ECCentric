@@ -3,18 +3,7 @@ from bqskit.ext import qiskit_to_bqskit, bqskit_to_qiskit
 from bqskit import MachineModel, compile
 from bqskit.ir.gates import *
 from pytket import OpType
-from pytket.passes import (
-    AutoRebase,
-    DecomposeBoxes,
-    RemoveBarriers,
-    GreedyPauliSimp,
-    RemoveRedundancies,
-    FullPeepholeOptimise,
-    SequencePass,
-    KAKDecomposition,
-    CliffordSimp,
-    SynthesiseTket,
-)
+from pytket.passes import AutoRebase, DecomposeBoxes, RemoveBarriers, GreedyPauliSimp, RemoveRedundancies, FullPeepholeOptimise, SequencePass, KAKDecompositions, CliffordSimp, SynthesiseTket
 from pytket.extensions.qiskit import qiskit_to_tk, tk_to_qiskit
 from qiskit import transpile
 
@@ -47,8 +36,8 @@ bqskit_stim = [
     SdgGate(),
     SwapGate(),
     Reset(),
-    # MeasureGate(),
-    # BarrierPlaceholder(), # it deals with measure/barrier anyway it seems
+    #MeasureGate(),
+    #BarrierPlaceholder(), # it deals with measure/barrier anyway it seems
 ]
 
 # TODO: either we need to provide custom tk1 to clifford gates decomposition or use a diff set for experiments
@@ -67,20 +56,20 @@ tket_stim = [
     OpType.Measure,
     OpType.Barrier,
     # TODO: remove
-    # OpType.Rz
+    #OpType.Rz
 ]
 
-# TODO: do we want to add ID?
+#TODO: do we want to add ID?
 qiskit_ibm_heron = [
     "x",
     "sx",
     "rzz",
     "rz",
     "rx",
-    "cz",
-    "measure",
-    "reset",
-    "barrier",
+    'cz',
+    'measure',
+    'reset',
+    'barrier',
 ]
 
 bqskit_ibm_heron = [
@@ -91,12 +80,13 @@ bqskit_ibm_heron = [
     RXGate(),
     CZGate(),
     Reset(),
+
 ]
 
 tket_ibm_heron = [
     OpType.X,
     OpType.SX,
-    OpType.ZZPhase,  # same as RZZ
+    OpType.ZZPhase, #same as RZZ
     OpType.Rz,
     OpType.Rx,
     OpType.CZ,
@@ -105,15 +95,16 @@ tket_ibm_heron = [
     OpType.Barrier,
 ]
 
-# qiskit has no fixed zz gate
-# added rxx and ryy gates to simulate SU(4)
+#qiskit has no fixed zz gate
+#added rxx and ryy gates to simulate SU(4)
 qiskit_h2 = [
     "rx",
     "ry",
     "rz",
     "rzz",
-    "rxx",
-    "ryy" "reset",
+    'rxx',
+    "ryy"
+    "reset",
     "measure",
     "barrier",
 ]
@@ -130,7 +121,8 @@ bqskit_h2 = [
 ]
 
 
-tket_h2 = [
+
+tket_h2 =[
     OpType.Rx,
     OpType.Ry,
     OpType.Rz,
@@ -166,7 +158,7 @@ def translate(circuit, translating_method, gate_set=None, level=0):
         qiskit_circuit = transpile(
             circuit,
             basis_gates=gate_set_obj,
-            optimization_level=level,  # TODO: 3 just for experiments!
+            optimization_level=level, # TODO: 3 just for experiments!
         )
         return qiskit_circuit
 
@@ -175,7 +167,7 @@ def translate(circuit, translating_method, gate_set=None, level=0):
         model = MachineModel(bqskit_circuit.num_qudits, gate_set=gate_set_obj)
         print(model.gate_set)
         bqskit_circuit = compile(bqskit_circuit, model=model, optimization_level=1)
-        # return bqskit_to_qiskit(bqskit_circuit)
+        #return bqskit_to_qiskit(bqskit_circuit)
         return bqskit_circuit
 
     elif translating_method == "tket":
@@ -184,33 +176,29 @@ def translate(circuit, translating_method, gate_set=None, level=0):
             rebase_pass = AutoRebase(set(gate_set_obj))
             rebase_pass.apply(tket_circuit)
         elif level == 2:
-            level2_pipeline = SequencePass(
-                [
-                    DecomposeBoxes(),
-                    FullPeepholeOptimise(),
-                    KAKDecomposition(allow_swaps=False),
-                    CliffordSimp(allow_swaps=False),
-                    SynthesiseTket(),
-                    AutoRebase(set(gate_set_obj)),
-                    RemoveRedundancies(),
-                ]
-            )
+            level2_pipeline = SequencePass([
+                DecomposeBoxes(),
+                FullPeepholeOptimise(),
+                KAKDecomposition(allow_swaps=False),
+                CliffordSimp(allow_swaps=False),
+                SynthesiseTket(),
+                AutoRebase(set(gate_set_obj)),
+                RemoveRedundancies()
+            ])
             level2_pipeline.apply(tket_circuit)
         elif level == 3:
-            level3_pipeline = SequencePass(
-                [
-                    DecomposeBoxes(),
-                    RemoveBarriers(),
-                    AutoRebase(set(gate_set_obj)),
-                    GreedyPauliSimp(),
-                    AutoRebase(set(gate_set_obj)),
-                    SynthesiseTket(),
-                    AutoRebase(set(gate_set_obj)),
-                    RemoveRedundancies(),
-                ]
-            )
+            level3_pipeline = SequencePass([
+                DecomposeBoxes(),
+                RemoveBarriers(),
+                AutoRebase(set(gate_set_obj)),
+                GreedyPauliSimp(),
+                AutoRebase(set(gate_set_obj)),
+                SynthesiseTket(),
+                AutoRebase(set(gate_set_obj)),
+                RemoveRedundancies()
+            ])
             level3_pipeline.apply(tket_circuit)
-        # return tk_to_qiskit(tket_circuit)
+        #return tk_to_qiskit(tket_circuit)
         return tket_circuit
 
     else:
