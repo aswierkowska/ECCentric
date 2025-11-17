@@ -31,6 +31,13 @@ def count_2q_gates_qiskit(circuit: qiskit.QuantumCircuit) -> int:
             count += 1
     return count
 
+def count_measurements_qiskit(circuit: qiskit.QuantumCircuit) -> int:
+    count = 0
+    for instr, qargs, _ in circuit.data:
+        if instr.name == "measure":
+            count += 1
+    return count
+
 def count_total_gates_tket(circuit: TketCircuit):
     count = 0
     for command in circuit.get_commands():
