@@ -67,7 +67,7 @@ class ArtificialNoise(NoiseModel):
         )
 
     @staticmethod
-    def SI1000(p: float, qt) -> 'NoiseModel':
+    def SI1000(p: float, qt, remote = None) -> 'NoiseModel':
         """Inspired by superconducting device."""
         return NoiseModel(
             sq=p / 10,
@@ -75,6 +75,7 @@ class ArtificialNoise(NoiseModel):
             measure=2 * p,
             reset=2 * p,
             qt=qt,
+            remote=remote,
             noisy_gates={
                 "CZ": p,
                 "R": 2 * p,

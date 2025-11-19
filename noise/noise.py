@@ -47,9 +47,13 @@ class NoiseModel:
         self.reset = reset
         self.measure = measure
         self.shuttle = shuttle
+        # Remote can either be one single number, or dictionary containing remote pairs and their noise level. If remote
+        # is a single number, and no qubit tracking is provided, no remote connections are taken into consideration
         self.remote = remote
         self.noisy_gates = noisy_gates
         self.gate_times = gate_times
+        # If there is no qubit tracking provided, it is still possible to utilize remote_gates functionality. For this
+        # provided the remote_gates and their noise strength in the self.remote property
         self.qt = qt
         self.backend = backend
         self.use_correlated_parity_measurement_errors = use_correlated_parity_measurement_errors
@@ -109,8 +113,15 @@ class NoiseModel:
                 self.qt.leak_qubit(target.value)
     
     def is_remote(self, pair: List[int]) -> bool:
-        if self.qt == None or self.backend == None:
-            return False
+        #if self.qt == None or self.backend == None:
+        #    return False
+        
+        if self.qt == None:
+            if isinstance(self.remote, (int, float)): return False
+            else:
+                # pair is a list, but remote needs this as pair
+                return tuple(pair) in self.remote
+            
         phy_q1 = self.qt.get_layout_postion(pair[0])
         phy_q2 = self.qt.get_layout_postion(pair[1])
         if (phy_q1, phy_q2) in self.backend.get_remote_gates or (phy_q2, phy_q1) in self.backend.get_remote_gates:
@@ -169,13 +180,20 @@ class NoiseModel:
                     if self.shuttle:
                         post.append_operation("DEPOLARIZE2", pair, self.shuttle)
                     if self.remote:
-                        post.append_operation("DEPOLARIZE2", pair, self.remote)
+                        if isinstance(self.remote, (int, float)):
+                            post.append_operation("DEPOLARIZE2", pair, self.remote)
+                        else:
+                            # Get strength based on the noise level of this pair
+                            noise = self.remote[tuple(pair)]
+                            post.append_operation("DEPOLARIZE2", pair, noise)
+                        
                     else:
                         post.append_operation("DEPOLARIZE2", pair, p)
                 self.add_qubit_error(post, targets, self.get_gate_time(op, pair))
         elif op.name in RESET_OPS:
             for q in targets:
-                self.qt.reset_qubit(q.value)
+                if self.qt != None:
+                    self.qt.reset_qubit(q.value)
             if op.name in self.noisy_gates:
                 post.append_operation("Z_ERROR" if op.name.endswith("X") else "X_ERROR", targets, self.noisy_gates[op.name])
             elif self.reset != 0:
@@ -255,7 +273,7 @@ class NoiseModel:
                     result.append_operation("TICK", [])
                     continue
                 
-                if op.name in SWAP_OPS:
+                if op.name in SWAP_OPS and self.qt != None:
                     self.qt.update_stim_swaps(op)
 
                 pre, mid, post = self.noisy_op(op, ancilla)
