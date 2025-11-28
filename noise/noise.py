@@ -183,17 +183,17 @@ class NoiseModel:
                 if self.is_remote(pair):
                     if self.shuttle:
                         post.append_operation("DEPOLARIZE2", pair, self.shuttle)
-                    if self.remote:
+                    elif self.remote:
                         if isinstance(self.remote, (int, float)):
                             post.append_operation("DEPOLARIZE2", pair, self.remote)
                         else:
                             # Get strength based on the noise level of this pair
                             noise = self.remote[tuple(pair)]
                             post.append_operation("DEPOLARIZE2", pair, noise)
-                        
                     else:
                         post.append_operation("DEPOLARIZE2", pair, p)
-            #print("asd")
+                else:
+                    post.append_operation("DEPOLARIZE2", pair, p)
                 self.add_qubit_error(post, targets, self.get_gate_time(op, pair))
         elif op.name in RESET_OPS:
             for q in targets:
