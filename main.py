@@ -112,7 +112,13 @@ def run_experiment(
 
 
 if __name__ == "__main__":
-    with open("experiments.yaml", "r") as f:
+    if len(sys.argv) != 2:
+        print(f"Remember to add YAML file!")
+        sys.exit(1)
+    
+    conf_file = sys.argv[1]
+
+    with open(conf_file, "r") as f:
         config = yaml.safe_load(f)
 
     for experiment in config["experiments"]:
