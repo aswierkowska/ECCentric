@@ -40,7 +40,8 @@ def get_backend(backend: str, backend_size: int):
             raise NotImplementedError
     elif backend_type == "variance":
         name = backend.split("_")[1]
-        backend = VarianceBackend(name)
+        scale = backend.split("_")[2]
+        backend = VarianceBackend(name, scale)
     else:
         raise NotImplementedError
     return backend

@@ -6,18 +6,19 @@ from qiskit.providers import QubitProperties
 class VarianceBackend(BackendV2):
     """Full for Testing Variance Backend."""
     
-    def __init__(self, variance: str):
+    def __init__(self, variance: str, scale: str):
         super().__init__(name="VarianceBackend", backend_version=2)
         # Based on Flamingo
         self._remote_gates, self._coupling_map = [], CouplingMap.from_full(399)
         self._num_qubits = self._coupling_map.size()
         self._target = Target("Fake IBM Flamingo", num_qubits=self._num_qubits)
+        scale = int(scale)
         if variance == "low":
-            self.addStateOfTheArtQubits(60)
+            self.addStateOfTheArtQubits(60, scale)
         elif variance == "mid":
-            self.addStateOfTheArtQubits(120)
+            self.addStateOfTheArtQubits(120, scale)
         elif variance == "high":
-            self.addStateOfTheArtQubits(180)
+            self.addStateOfTheArtQubits(180, scale)
         
 
     @property
@@ -56,17 +57,17 @@ class VarianceBackend(BackendV2):
     def _default_options(cls):
         return Options(shots=1024)
      
-    def addStateOfTheArtQubits(self, variance=120):
+    def addStateOfTheArtQubits(self, variance=120, scale=1):
         qubit_props = []
        
         for i in range(self._num_qubits):
             t1 = np.random.normal(190, variance, 1)
             t1 = np.clip(t1, 0, 570)
-            t1 = t1 * 1e-6 * 10 # 10 times better
+            t1 = t1 * 1e-6 * scale
             
             t2 = np.random.normal(130, variance, 1)
             t2 = np.clip(t2, 0, 390)
-            t2 = t2 * 1e-6 * 10 # 10 times better
+            t2 = t2 * 1e-6 * scale
         
             qubit_props.append(QubitProperties(t1=t1, t2=t2, frequency=5.0e9))
         
