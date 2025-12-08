@@ -2,7 +2,7 @@ from .noise import *
 from backends import FakeIBMFlamingo, QubitTracking
 
 
-class FlamingoNoise(NoiseModel):
+class FlamingoNoiseDownscaled(NoiseModel):
 
     @staticmethod
     def get_noise(
