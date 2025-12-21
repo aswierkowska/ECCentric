@@ -19,6 +19,8 @@ class VarianceBackend(BackendV2):
             self.addStateOfTheArtQubits(120, scale)
         elif variance == "high":
             self.addStateOfTheArtQubits(180, scale)
+        elif variance == "none":
+            self.addStateOfTheArtQubits(0, scale)
         
 
     @property

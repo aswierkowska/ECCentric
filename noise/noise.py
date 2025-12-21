@@ -8,7 +8,7 @@ import numpy as np
 #################################################################################################################
 # Based on: https://github.com/Strilanc/honeycomb_threshold/blob/main/src/noise.py
 #################################################################################################################
-from typing import Optional, Dict, Set, Tuple, List, Union
+from typing import Optional, Dict, Set, Tuple, List, Union, Callable
 
 import stim
 
@@ -29,7 +29,7 @@ class NoiseModel:
         leakage: Optional[float] = 0,
         leakage_propagation: Optional[float] = 0,
         reset: Optional[float] = 0,
-        measure: Optional[float] = 0,
+        measure = 0,
         shuttle: Optional[float] = 0,
         remote: Optional[float] = 0,
         noisy_gates: Dict[str, float] = {},
@@ -57,6 +57,10 @@ class NoiseModel:
         self.qt = qt
         self.backend = backend
         self.use_correlated_parity_measurement_errors = use_correlated_parity_measurement_errors
+        if callable(measure):
+            self.measure_func = measure
+        else:
+            self.measure_func = lambda: measure
 
     
     def add_qubit_error(self, circuit: stim.Circuit, qubits: List[stim.GateTarget], gate_duration: float) -> None:
@@ -205,7 +209,8 @@ class NoiseModel:
             if op.name in self.noisy_gates:
                 p = self.noisy_gates[op.name]
             else:
-                p = self.measure
+                p = self.measure_func()
+                print(f"P: {p}")
             pre.append_operation("Z_ERROR" if op.name.endswith("X") else "X_ERROR", targets, p)
             #self.add_qubit_error(post, targets, self.get_gate_time(op))
         elif op.name == "MPP":

@@ -29,8 +29,6 @@ def get_noise_model(error_type: str,
             return ArtificialNoise.modSI1000(p, qt, remote=remote)
         elif error_type == "constant":
             return ArtificialNoise.constant(p, qt, remote=remote)
-        elif error_type == "variance":
-            return ArtificialVarianceNoise.get_noise(p, qt, backend)
     if error_type == "real_willow":
         return WillowNoise.get_noise(qt)
     elif error_type == "real_flamingo" and backend:
@@ -43,4 +41,9 @@ def get_noise_model(error_type: str,
         return ApolloNoise.get_noise(qt)
     elif error_type == "real_heron":
         return HeronNoise.get_noise(qt, backend)
+    elif error_type.startswith("variance"):
+        if error_type == "variance":
+            return ArtificialVarianceNoise.get_noise(qt, backend)
+        else:
+            return ArtificialVarianceNoise.get_noise(qt, backend, error_type.split("_")[1])
     raise NotImplementedError
