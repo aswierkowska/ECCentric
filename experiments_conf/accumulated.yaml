@@ -5,5 +5,5 @@ experiments:
     backends_sizes: [300]
     codes: ["surface", "gross", "color", "bacon", "hh", "steane"]
     error_types: ["modsi1000"]
-    error_probabilities: [0.004, 0.006, 0.008] 
+    error_probabilities: [1e-4, 2e-4, 5e-4, 1e-3, 2e-3, 5e-3, 1e-2, 2e-2, 5e-2, 1e-1]
     decoders: ["bposd"]
