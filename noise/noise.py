@@ -212,15 +212,14 @@ class NoiseModel:
                 p = self.measure_func()
                 print(f"P: {p}")
             pre.append_operation("Z_ERROR" if op.name.endswith("X") else "X_ERROR", targets, p)
-            #self.add_qubit_error(post, targets, self.get_gate_time(op))
+            self.add_qubit_error(post, targets, self.get_gate_time(op))
         elif op.name == "MPP":
-            # Our circuits never contain MPP after translations
             assert len(targets) % 3 == 0 and all(t.is_combiner for t in targets[1::3]), repr(op)
             assert args == [] or args == [0]
             if op.name in self.noisy_gates:
                 p = self.noisy_gates[op.name]
             else:
-                p = self.measure
+                p = self.measure()
 
             if self.use_correlated_parity_measurement_errors:
                 for k in range(0, len(targets), 3):
@@ -232,7 +231,9 @@ class NoiseModel:
                 return pre, mid, post
 
             else:
-                pre.append_operation("DEPOLARIZE2", [t.value for t in targets if not t.is_combiner], p)
+                for t in targets:
+                    if not t.is_combiner:
+                        pre.append_operation("DEPOLARIZE1", [t.value], p)
                 args = [p]
         mid.append_operation(op.name, targets, args)
         return pre, mid, post

@@ -4,6 +4,7 @@ import numpy as np
 
 from .bp_osd import bposd_chk, bposd_batch
 from .mwpm import mwpm
+from .chromobius import chromobius
 
 
 def decode(
@@ -18,6 +19,11 @@ def decode(
             return mwpm(circuit, num_shots, approximate_disjoint_errors)
         except Exception as e:
             logging.error(f"MWPM failed: {e}")
+    elif decoder == "chromobius":
+        try:
+            return chromobius(circuit, num_shots, approximate_disjoint_errors)
+        except Exception as e:
+            logging.error(f"Chromobius failed: {e}")
     elif decoder == "bposd":
         try:
             if code_name == "steane" or code_name == "bacon":
@@ -26,6 +32,18 @@ def decode(
                 return bposd_batch(circuit, num_shots, approximate_disjoint_errors)
         except Exception as e:
             logging.error(f"BP-OSD failed: {e}")
+            return None
+    elif decoder == "bposd_chk":
+        try:
+            return bposd_chk(circuit, num_shots, approximate_disjoint_errors)
+        except Exception as e:
+            logging.error(f"BP-OSD CHK failed: {e}")
+            return None
+    elif decoder == "bposd_batch":
+        try:
+            return bposd_batch(circuit, num_shots, approximate_disjoint_errors)
+        except Exception as e:
+            logging.error(f"BP-OSD BATCH failed: {e}")
             return None
     else:
         raise NotImplementedError
