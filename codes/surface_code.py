@@ -11,4 +11,6 @@ def get_surface_code(d, T = None):
         rounds=T,
         distance=d
     )
+
+    print("This works right?")
     return StimCodeCircuit(stim_circuit = stim_circuit)

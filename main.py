@@ -10,6 +10,10 @@ import logging
 from itertools import product
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import Manager
+from qiskit_ibm_runtime import QiskitRuntimeService
+from qiskit_ibm_runtime import EstimatorV2 as Estimator
+from qiskit.quantum_info import SparsePauliOp
+from qiskit.transpiler import generate_preset_pass_manager
 from qiskit.compiler import transpile
 from qiskit_qec.utils import get_stim_circuits
 from backends import get_backend, QubitTracking
@@ -19,6 +23,41 @@ from decoders import decode
 from transpilers import run_transpiler, translate
 from utils import save_experiment_metadata, save_results_to_csv, setup_experiment_logging
 import stim
+
+
+def load_API_key():
+ 
+    QiskitRuntimeService.save_account(
+    token="8pocbpOS-ra1aLAH2bowls6UBvyy56EZ30t9YeaQB5Eh", # Use the 44-character API_KEY you created and saved from the IBM Quantum Platform Home dashboard
+    instance="open-instance", # Optional
+    overwrite=True
+    )
+
+def run_on_real_device(circuit):
+
+    service = QiskitRuntimeService()
+    backend = service.least_busy(simulator=False, operational=True)
+ 
+    # Convert to an ISA circuit and layout-mapped observables.
+    pm = generate_preset_pass_manager(backend=backend, optimization_level=1)
+    isa_circuit = pm.run(circuit)
+
+    estimator = Estimator(mode=backend)
+    estimator.options.resilience_level = 1
+    estimator.options.default_shots = 5000
+
+    observables_labels = ["IZIZIZIIZIZIZIIZIZIZIIIIII"]
+    observables = [SparsePauliOp(label) for label in observables_labels]
+
+    mapped_observables = [
+    observable.apply_layout(isa_circuit.layout) for observable in observables
+    ]
+ 
+    job = estimator.run([(isa_circuit, mapped_observables)])
+ 
+    # Use the job ID to retrieve your job data later
+    print(f">>> Job ID: {job.job_id()}")
+    pass
 
 def run_experiment(
     experiment_name,
@@ -73,6 +112,17 @@ def run_experiment(
         if translating_method:
             code.qc = translate(code.qc, translating_method)
         code.qc = run_transpiler(code.qc, backend, layout_method, routing_method)
+
+        print(code.qc)
+
+        #from qiskit.primitives import StatevectorSampler
+        #sampler = StatevectorSampler()
+        #result = sampler.run([code.qc], shots=1024).result()
+        #print(result[0].data.meas.get_counts())
+
+        load_API_key()
+        run_on_real_device(code.qc)
+
         qt = QubitTracking(backend, code.qc)
         stim_circuit = get_stim_circuits(
             code.qc, detectors=detectors, logicals=logicals

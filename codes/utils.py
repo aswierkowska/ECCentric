@@ -7,6 +7,7 @@ from .surface_code import get_surface_code
 from .hh_code import get_hh_code
 
 def get_code(code_name: str, d: int, cycles: int):
+    print("Why")
     if code_name == "hh":
         if cycles == None:
             return get_hh_code(d, None)
@@ -18,7 +19,9 @@ def get_code(code_name: str, d: int, cycles: int):
         else:
             return get_gross_code(T=cycles)
     elif code_name == "surface":
+        print("WE should reach here")
         if cycles == None:
+            print("WE should reach here")
             code = get_surface_code(d=d, T=d)
         else:
             code = get_surface_code(d=d, T=cycles)
