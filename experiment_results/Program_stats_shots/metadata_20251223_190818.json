@@ -1,0 +1,22 @@
+{
+    "name": "Program_stats_shots",
+    "num_samples": 10000,
+    "backends": [
+        "custom_full"
+    ],
+    "backends_sizes": [
+        400
+    ],
+    "codes": [
+        "surface"
+    ],
+    "error_types": [
+        "modsi1000"
+    ],
+    "error_probabilities": [
+        0.004
+    ],
+    "decoders": [
+        "bposd"
+    ]
+}
