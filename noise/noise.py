@@ -210,7 +210,6 @@ class NoiseModel:
                 p = self.noisy_gates[op.name]
             else:
                 p = self.measure_func()
-                print(f"P: {p}")
             pre.append_operation("Z_ERROR" if op.name.endswith("X") else "X_ERROR", targets, p)
             self.add_qubit_error(post, targets, self.get_gate_time(op))
         elif op.name == "MPP":
