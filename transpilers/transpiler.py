@@ -1,5 +1,5 @@
 from qiskit import transpile
-from .translators import qiskit_stim
+from .translators import qiskit_stim, qiskit_ibm_heron
 
 def run_transpiler(circuit, backend, layout_method, routing_method):
     return transpile(
