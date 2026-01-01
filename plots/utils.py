@@ -5,6 +5,7 @@ import seaborn as sns
 import os
 import matplotlib.ticker as mtick
 from matplotlib.ticker import ScalarFormatter
+from matplotlib.patches import Rectangle
 
 # Marker styles for different codes
 marker_styles = {
