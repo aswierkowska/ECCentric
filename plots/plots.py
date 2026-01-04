@@ -2171,7 +2171,7 @@ def plot_time_and_memory_stacked(csv_common, csv_big, csv_more_shots):
                     zorder=1)
         bottom += values
 
-    axes[1].set_title("b) Runtime (w/ decoding)", loc="left", fontsize=FONTSIZE, fontweight="bold")
+    axes[1].set_title("b) Runtime (w/ Decoding)", loc="left", fontsize=FONTSIZE, fontweight="bold")
     axes[1].set_ylabel("Time [s]", fontsize=FONTSIZE)
     axes[1].text(1.0, 1.16, "Lower is better ↓", transform=axes[1].transAxes,
                  ha="right", va="top", fontsize=FONTSIZE, color="blue", fontweight="bold")
@@ -2191,7 +2191,7 @@ def plot_time_and_memory_stacked(csv_common, csv_big, csv_more_shots):
     )
 
     axes[2].set_title(
-        "c) Peak Memory",
+        "c) Peak Memory Usage",
         loc="left",
         fontsize=FONTSIZE,
         fontweight="bold"
@@ -2228,6 +2228,156 @@ def plot_time_and_memory_stacked(csv_common, csv_big, csv_more_shots):
     plt.savefig("data/program_stats.pdf", format="pdf")
     plt.close(fig)
 
+def plot_threshold_per_code(csv_path):
+    df = pd.read_csv(csv_path)
+    df = df.dropna(subset=["error_probability", "corrected_error_rate", "code"])
+    df = df.sort_values("error_probability")
+
+    codes = sorted(df["code"].unique())
+    default_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    code_color = {c.lower(): default_colors[i % len(default_colors)] for i, c in enumerate(codes)}
+
+    fig, ax = plt.subplots(figsize=(WIDE_FIGSIZE*0.8, HEIGHT_FIGSIZE*1.1))
+
+    for code in codes:
+        code_key = code.lower()
+        sub = df[df["code"] == code]
+
+        x = sub["error_probability"].values
+        y = sub["corrected_error_rate"].values
+        display_name = code_rename_map.get(code_key, code.capitalize())
+        ax.plot(
+            x,
+            y,
+            marker="o",
+            linewidth=2,
+            markersize=5,
+            label=display_name,
+            color=code_color[code_key],
+            markeredgecolor="none"
+        )
+
+    # Log–log axes (threshold plot)
+    ax.set_xscale("log")
+    # ax.set_yscale("log")  # optional
+
+    ax.set_xlabel("Physical error probability", fontsize=12, labelpad=0.01)
+    ax.set_ylabel("Logical error rate", fontsize=12)
+    ax.text(
+        1.0, 1.12,
+        "Lower is better ↓",
+        transform=ax.transAxes,
+        fontsize=12,
+        fontweight="bold",
+        color="blue",
+        va="top",
+        ha="right"
+    )
+
+    ax.grid(True, which="both")
+
+    # Legend in top-left corner
+    handles, labels = ax.get_legend_handles_labels()
+    unique_labels = {}
+    for h, l in zip(handles, labels):
+        if l not in unique_labels:
+            unique_labels[l] = h
+
+    ax.legend(
+        handles=list(unique_labels.values()),
+        labels=list(unique_labels.keys()),
+        loc="upper left",
+        ncol=2,
+        frameon=True,
+        handletextpad=0.2,
+        columnspacing=0.5
+    )
+    ax.set_title("Effectiveness of codes", loc="left", fontsize=FONTSIZE, fontweight="bold")
+    fig.patch.set_edgecolor("blue")
+    fig.patch.set_linewidth(3)
+    plt.subplots_adjust(left=0.15, right=0.99, top=0.85, bottom=0.2)
+    os.makedirs("data", exist_ok=True)
+    plt.savefig("data/thresholds.pdf", format="pdf")
+    plt.close(fig)
+
+
+
+def plot_gross_shot_comparison(csv_1000, csv_more):
+    df_1000 = pd.read_csv(csv_1000)
+    df_more = pd.read_csv(csv_more)
+
+    # Filter to gross code only
+    df_1000 = df_1000[df_1000["code"] == "gross"]
+    df_more = df_more[df_more["code"] == "gross"]
+
+    # Keep only common error probabilities
+    common_probs = np.intersect1d(
+        df_1000["error_probability"].unique(),
+        df_more["error_probability"].unique()
+    )
+
+    df_1000 = df_1000[df_1000["error_probability"].isin(common_probs)]
+    df_more = df_more[df_more["error_probability"].isin(common_probs)]
+
+    # Sort for clean lines
+    df_1000 = df_1000.sort_values("error_probability")
+    df_more = df_more.sort_values("error_probability")
+
+
+    # Figure
+    fig, ax = plt.subplots(figsize=(0.8*WIDE_FIGSIZE, HEIGHT_FIGSIZE))
+
+    ax.plot(
+        df_1000["error_probability"],
+        df_1000["corrected_error_rate"],
+        marker="o",
+        linewidth=2,
+        markersize=6,
+        label="Gross (1000 shots)"
+    )
+
+    ax.plot(
+        df_more["error_probability"],
+        df_more["corrected_error_rate"],
+        marker="s",
+        linewidth=2,
+        markersize=6,
+        label=f"Gross ({df_more['num_samples'].iloc[0]} shots)"
+    )
+
+    # Log–log threshold plot
+    ax.set_xscale("log")
+    #ax.set_yscale("log")
+
+    ax.set_xlabel("Physical error probability", fontsize=FONTSIZE, labelpad=0.01)
+    ax.set_ylabel("Log. error rate", fontsize=FONTSIZE)
+    ax.set_title("Precision of #shots", loc="left", fontsize=FONTSIZE, fontweight="bold")
+
+    ax.grid(True, which="both")
+
+    ax.legend(
+        fontsize=FONTSIZE,
+        frameon=True
+    )
+
+    ax.text(
+        1.0, 1.14,
+        "Lower is better ↓",
+        transform=ax.transAxes,
+        fontsize=12,
+        fontweight="bold",
+        color="blue",
+        va="top",
+        ha="right"
+    )
+        
+    fig.patch.set_edgecolor("blue")
+    fig.patch.set_linewidth(3)
+    plt.subplots_adjust(left=0.15, right=0.99, top=0.85, bottom=0.2)
+    os.makedirs("data", exist_ok=True)
+    plt.savefig("data/shot_comparison.pdf", format="pdf")
+    plt.close(fig)
+
 
 
 if __name__ == '__main__':
@@ -2248,6 +2398,9 @@ if __name__ == '__main__':
     program_topology = "experiment_results/Program_stats_topology/results.csv"
     program_size = "experiment_results/Program_stats_size/results.csv"
     program_shots = "experiment_results/Program_stats_shots/results.csv"
+    threshold = "experiment_results/Accumulated_Small/results.csv"
+    threshold_more = "experiment_results/Accumulated_bck/results.csv"
+    threshold_shots = "experiment_results/Accumulated/results.csv"
     #generate_size_plot_two(size)
     #generate_connectivity_topology_plot(connectivity, topology)
     #generate_technology_plot(path)
@@ -2266,3 +2419,5 @@ if __name__ == '__main__':
     generate_decoder_error_barplot(decoder_special)
     #generate_decoder_plot_time(decoder_general)
     plot_time_and_memory_stacked(program_topology, program_size, program_shots)
+    plot_threshold_per_code(threshold)
+    plot_gross_shot_comparison(threshold_more, threshold_shots)
