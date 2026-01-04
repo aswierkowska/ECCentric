@@ -4,6 +4,6 @@ experiments:
     backends: ["custom_full"]
     backends_sizes: [400]
     codes: ["surface", "gross", "color", "bacon", "hh", "steane"]
-    error_types: ["modsi1000"]
+    error_types: ["constant", "modsi1000"]
     error_probabilities: [0.004] 
     decoders: ["bposd_chk", "bposd_batch", "mwpm"]
