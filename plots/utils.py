@@ -54,7 +54,7 @@ backend_rename_map = {
 }
 
 # Color palette and hatches for bars
-code_palette = sns.color_palette("pastel", n_colors=6)
+code_palette = sns.color_palette("pastel", n_colors=8)
 code_hatches = ["/", "\\", "//", "++", "xx", "**"]
 
 # Figure sizes and font

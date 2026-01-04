@@ -1710,9 +1710,6 @@ def generate_variance_two(decoherence_csv, readout_csv):
     plt.close(fig)
 
 
-
-
-
 def generate_decoder_plot(df_path):
     df = pd.read_csv(df_path)
     if "error_type" in df.columns:
@@ -2047,6 +2044,190 @@ def generate_decoder_plot_time(df_path):
     plt.savefig("data/decoder_time.pdf", format="pdf")
     plt.close(fig)
 
+def plot_time_and_memory_stacked(csv_common, csv_big, csv_more_shots):
+    def sci_formatter(y, _pos):
+        if y == 0:
+            return "0"
+        s = f"{y:.2e}"
+        mant, exp = s.split('e')
+        mant = mant.rstrip('0').rstrip('.')
+        exp_int = int(exp)
+        return f"{mant}e{exp_int}"
+
+    # Load CSVs
+    df_common = pd.read_csv(csv_common)
+    df_big = pd.read_csv(csv_big)
+    df_more = pd.read_csv(csv_more_shots)
+
+    # Select rows
+    row_baseline = df_common[df_common["backend"].str.contains("full", case=False)].iloc[0]
+    row_grid = df_common[df_common["backend"].str.contains("grid", case=False)].iloc[0]
+    row_big = df_big.iloc[0]
+    row_more = df_more.iloc[0]
+
+    # Ordered cases (capitalized)
+    cases = [
+        ("Baseline", row_baseline),
+        ("Bigger\nBackend", row_big),
+        ("Sparser\nBackend", row_grid),
+        ("More Shots", row_more),
+    ]
+
+    labels = [name for name, _ in cases]
+    rows = [row for _, row in cases]
+    x = np.arange(len(labels))
+    width = 0.65
+
+    # Time components
+    time_cols = [
+        "time_backend",
+        "time_circuit",
+        "time_transpile",
+        "time_repr",
+        "time_noise",
+        "time_decode",
+    ]
+    time_cols_no_decode = [
+        "time_backend",
+        "time_circuit",
+        "time_transpile",
+        "time_repr",
+        "time_noise",
+    ]
+    # Memory components (FULL)
+    mem_cols = [
+        "mem_backend_full_MB",
+        "mem_circuit_full_MB",
+        "mem_transpile_full_MB",
+        "mem_repr_full_MB",
+        "mem_noise_full_MB",
+        "mem_decode_full_MB",
+    ]
+
+    # -------- FIGURE: 3 rows, 1 column --------
+    fig, axes = plt.subplots(
+        3, 1,
+        figsize=(WIDE_FIGSIZE * 0.8, HEIGHT_FIGSIZE * 2),
+        sharex=True
+    )
+
+    color_map = code_palette
+
+    # ======== a) TIME (WITH DECODE) ========
+    bottom = np.zeros(len(labels))
+    axes[0].grid(axis="y")  # Grid behind bars
+    for i, col in enumerate(time_cols):
+        label = col.replace("time_", "").capitalize()
+        # Rename legend entries
+        if label == "Repr":
+            label = "Repr. Change"
+        elif label == "Circuit":
+            label = "Circuit Gen."
+        elif label == "Backend":
+            label = "Backend Gen."
+
+        values = [row[col] for row in rows]
+        axes[0].bar(x, values, width, bottom=bottom,
+                    label=label,
+                    color=color_map[i % len(color_map)],
+                    edgecolor='black',
+                    zorder=1)
+        bottom += values
+
+    axes[0].set_title("a) Runtime", loc="left", fontsize=FONTSIZE, fontweight="bold")
+    axes[0].set_ylabel("Time [s]", fontsize=FONTSIZE)
+    axes[0].yaxis.set_major_formatter(FuncFormatter(sci_formatter))
+    axes[0].text(1.0, 1.16, "Lower is better ↓", transform=axes[0].transAxes,
+                 ha="right", va="top", fontsize=FONTSIZE, color="blue", fontweight="bold")
+    axes[0].legend(
+        loc="upper left",
+        fontsize=FONTSIZE-1,
+        frameon=True,
+        ncol=2,
+        labelspacing=0.3,      # vertical spacing between entries
+        handletextpad=0.4,     # space between marker and text
+        handlelength=1.2,      # length of color box
+        borderpad=0.18
+    )
+
+
+    # ======== b) TIME (NO DECODE) ========
+    bottom = np.zeros(len(labels))
+    axes[1].grid(axis="y")
+    for i, col in enumerate(time_cols_no_decode):
+        label = col.replace("time_", "").capitalize()
+        if label == "Repr":
+            label = "Repr. Change"
+        elif label == "Circuit":
+            label = "Circuit Gen."
+        elif label == "Backend":
+            label = "Backend Gen."
+
+        values = [row[col] for row in rows]
+        axes[1].bar(x, values, width, bottom=bottom,
+                    label=label,
+                    color=color_map[i % len(color_map)],
+                    edgecolor='black',
+                    zorder=1)
+        bottom += values
+
+    axes[1].set_title("b) Runtime (w/ decoding)", loc="left", fontsize=FONTSIZE, fontweight="bold")
+    axes[1].set_ylabel("Time [s]", fontsize=FONTSIZE)
+    axes[1].text(1.0, 1.16, "Lower is better ↓", transform=axes[1].transAxes,
+                 ha="right", va="top", fontsize=FONTSIZE, color="blue", fontweight="bold")
+
+    # ======== c) MEMORY (PEAK RSS) ========
+    axes[2].grid(axis="y")
+
+    mem_values = [row["peak_memory_full_MB"] for row in rows]
+
+    axes[2].bar(
+        x,
+        mem_values,
+        width,
+        color=color_map[7],
+        edgecolor="black",
+        zorder=1
+    )
+
+    axes[2].set_title(
+        "c) Peak Memory",
+        loc="left",
+        fontsize=FONTSIZE,
+        fontweight="bold"
+    )
+    axes[2].set_ylabel("Memory [MB]", fontsize=FONTSIZE)
+    axes[2].yaxis.set_major_formatter(FuncFormatter(sci_formatter))
+
+    axes[2].text(
+        1.0, 1.16,
+        "Lower is better ↓",
+        transform=axes[2].transAxes,
+        ha="right",
+        va="top",
+        fontsize=FONTSIZE,
+        color="blue",
+        fontweight="bold"
+    )
+
+    # -------- SHARED X-AXIS --------
+    axes[2].set_xticks(x)
+    axes[2].set_xticklabels(labels, fontsize=FONTSIZE - 2, rotation=0, ha="center")
+
+    # -------- COMMON LEGEND UNDER FIGURE --------
+    #handles, legend_labels = axes[0].get_legend_handles_labels()
+    #fig.legend(handles, legend_labels, loc='lower center', ncol=len(handles) // 2,
+    #           frameon=False, fontsize=FONTSIZE, bbox_to_anchor=(0.5, 0))
+
+    # Figure styling
+    fig.patch.set_edgecolor("blue")
+    fig.patch.set_linewidth(3)
+    plt.subplots_adjust(left=0.13, right=0.99, top=0.94, bottom=0.1, hspace=0.35)
+
+    os.makedirs("data", exist_ok=True)
+    plt.savefig("data/program_stats.pdf", format="pdf")
+    plt.close(fig)
+
 
 
 if __name__ == '__main__':
@@ -2064,6 +2245,9 @@ if __name__ == '__main__':
     dqc = [dqc_flamingo, dqc_nighthawk]
     decoder_general = "experiment_results/Decoder/results.csv"
     decoder_special = "experiment_results/Decoder_Chromobius/results.csv"
+    program_topology = "experiment_results/Program_stats_topology/results.csv"
+    program_size = "experiment_results/Program_stats_size/results.csv"
+    program_shots = "experiment_results/Program_stats_shots/results.csv"
     #generate_size_plot_two(size)
     #generate_connectivity_topology_plot(connectivity, topology)
     #generate_technology_plot(path)
@@ -2081,3 +2265,4 @@ if __name__ == '__main__':
     generate_decoder_plot(decoder_general)
     generate_decoder_error_barplot(decoder_special)
     #generate_decoder_plot_time(decoder_general)
+    plot_time_and_memory_stacked(program_topology, program_size, program_shots)
