@@ -1,16 +1,16 @@
 experiments:
-  - name: "Connectivity"
-    num_samples: 1000
-    backends: ["custom_grid", "custom_cube", "custom_full"]
-    backends_sizes: [300]
-    codes: ["surface", "gross", "color", "bacon", "hh", "steane"]
-    error_types: ["modsi1000"]
-    error_probabilities: [0.002] 
-    decoders: ["bposd"]
+#  - name: "Connectivity"
+#    num_samples: 1000
+#    backends: ["custom_grid", "custom_cube", "custom_full"]
+#    backends_sizes: [300]
+#    codes: ["surface", "gross", "color", "bacon", "hh", "steane"]
+#    error_types: ["modsi1000"]
+#    error_probabilities: [0.002] 
+#    decoders: ["bposd"]
   - name: "Real_Topology"
     num_samples: 1000
     backends: ["real_willow", "real_nsinfleqtion", "real_apollo"]
-    codes: ["surface", "gross", "color", "bacon", "hh", "steane"]
+    codes: ["surface", "color", "bacon", "hh", "steane"]
     error_types: ["modsi1000"]
-    error_probabilities: [0.002, 0.004] # 0.004 in the paper 
+    error_probabilities: [0.004] # 0.004 in the paper 
     decoders: ["bposd"]
