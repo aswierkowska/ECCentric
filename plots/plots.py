@@ -621,13 +621,16 @@ def generate_dqc_plot(dqc_files):
         df["code"] = df["code"].apply(lambda x: code_rename_map.get(x.lower(), x.capitalize()))
 
         device = csv_path.split("/")[1].split("_")[1]
-        print(df)
 
-        for i, err_prob in enumerate([1, 10]):
+        # Use error_type instead of error_probability
+        for i, err_label in enumerate(["normal", "downscaled"]):
             ax_idx = file_idx * 2 + i
             ax = axes[ax_idx]
 
-            sub_df = df[df["error_probability"] == err_prob]
+            if err_label == "normal":
+                sub_df = df[~df["error_type"].str.contains("downscaled", na=False)]
+            else:  # "downscaled" corresponds to 10% error
+                sub_df = df[df["error_type"].str.contains("downscaled", na=False)]
 
             codes = sorted(sub_df["code"].unique())
             backends = sorted(sub_df["backend"].unique())
@@ -676,10 +679,10 @@ def generate_dqc_plot(dqc_files):
             ax.spines['left'].set_color('black')
             ax.spines['right'].set_color('black')
 
-            plot_label = f"{chr(97 + 2*file_idx + (0 if err_prob == 1 else 1))})"
-            #plot_label = "a)" if err_prob == 1 else "b)"
+            plot_label = f"{chr(97 + 2*file_idx + i)})"
             device_label = "Fl" if device == "Flamingo" else "NH"
-            ax.set_title(f"{plot_label} {device_label}. {"" if err_prob == 1 else "10%"}",
+            error_pct = "" if err_label == "normal" else "10%"
+            ax.set_title(f"{plot_label} {device_label}. {error_pct}",
                          loc="left", fontsize=12, fontweight="bold")
             ax.text(
                 1.02, 1.16, "Lower is better ↓",
@@ -687,52 +690,6 @@ def generate_dqc_plot(dqc_files):
                 fontsize=12, fontweight="bold", color="blue",
                 va="top", ha="right"
             )
-
-    """
-    fig.text(
-        0.99,             # x in figure coordinates (0=left, 1=right)
-        0.91,              # y in figure coordinates (0=bottom, 1=top)
-        "Lower is better ↓",
-        fontsize=12,
-        fontweight="bold",
-        color="blue",
-        ha="right",
-        va="top"
-    )
-
-    fig.text(
-        0.755,             # x in figure coordinates (0=left, 1=right)
-        0.91,              # y in figure coordinates (0=bottom, 1=top)
-        "Lower is better ↓",
-        fontsize=12,
-        fontweight="bold",
-        color="blue",
-        ha="right",
-        va="top"
-    )
-
-    fig.text(
-        0.525,             # x in figure coordinates (0=left, 1=right)
-        0.91,              # y in figure coordinates (0=bottom, 1=top)
-        "Lower is better ↓",
-        fontsize=12,
-        fontweight="bold",
-        color="blue",
-        ha="right",
-        va="top"
-    )
-
-    fig.text(
-        0.294,             # x in figure coordinates (0=left, 1=right)
-        0.91,              # y in figure coordinates (0=bottom, 1=top)
-        "Lower is better ↓",
-        fontsize=12,
-        fontweight="bold",
-        color="blue",
-        ha="right",
-        va="top"
-    )
-    """
 
     # Shared vertical legend on the right
     handles, labels = axes[0].get_legend_handles_labels()
@@ -746,8 +703,8 @@ def generate_dqc_plot(dqc_files):
         columnspacing=0.7
     )
 
-    #plt.tight_layout(rect=[0, 0, 1, 1])
-    #plt.subplots_adjust(wspace=0.05)
+    fig.patch.set_edgecolor("blue")
+    fig.patch.set_linewidth(3)
     plt.subplots_adjust(left=0.08, bottom=0.3, right=0.995, wspace=0.05)
     os.makedirs("data", exist_ok=True)
     plt.savefig("data/dqc.pdf", format="pdf")
@@ -1711,128 +1668,132 @@ def generate_variance_two(decoherence_csv, readout_csv):
 
 
 def generate_decoder_plot(df_path):
-    df = pd.read_csv(df_path)
-    if "error_type" in df.columns:
-        df = df[df["error_type"] == "modsi1000"]
+    for err_name in ["modsi1000", "constant"]:
+        df = pd.read_csv(df_path)
+        if "error_type" in df.columns:
+            df = df[df["error_type"] == err_name]
 
-    # Optional renaming
-    if "code_rename_map" in globals():
-        df["code"] = df["code"].apply(
-            lambda x: code_rename_map.get(x.lower(), x.capitalize())
+        # Optional renaming
+        if "code_rename_map" in globals():
+            df["code"] = df["code"].apply(
+                lambda x: code_rename_map.get(x.lower(), x.capitalize())
+            )
+        else:
+            df["code"] = df["code"].apply(lambda x: x.capitalize())
+
+        if "decoder_map" in globals():
+            df["decoder"] = df["decoder"].apply(lambda x: decoder_map.get(x, x))
+
+        # Binomial std error (only used for logical_error_rate)
+        df["std"] = np.sqrt(
+            df["logical_error_rate"]
+            * (1 - df["logical_error_rate"])
+            / df["num_samples"]
         )
-    else:
-        df["code"] = df["code"].apply(lambda x: x.capitalize())
 
-    if "decoder_map" in globals():
-        df["decoder"] = df["decoder"].apply(lambda x: decoder_map.get(x, x))
+        # Unique codes and decoders
+        codes = sorted(df["code"].unique())
+        decoders = sorted(df["decoder"].unique())
+        n_codes = len(codes)
+        n_decoders = len(decoders)
 
-    # Binomial std error (only used for logical_error_rate)
-    df["std"] = np.sqrt(
-        df["logical_error_rate"]
-        * (1 - df["logical_error_rate"])
-        / df["num_samples"]
-    )
+        # Layout constants
+        colors = code_palette
+        x = np.arange(n_codes)
+        offsets = np.linspace(-BAR_WIDTH, BAR_WIDTH, n_decoders)
 
-    # Unique codes and decoders
-    codes = sorted(df["code"].unique())
-    decoders = sorted(df["decoder"].unique())
-    n_codes = len(codes)
-    n_decoders = len(decoders)
+        panels = [
+            ("logical_error_rate", "Log. Err. Rate", True),
+            ("time_decode", "Time [s] (log)", False),
+            ("mem_decode_full_MB", "Memory [MB]", False),
+        ]
 
-    # Layout constants
-    colors = code_palette
-    x = np.arange(n_codes)
-    offsets = np.linspace(-BAR_WIDTH, BAR_WIDTH, n_decoders)
+        fig, axes = plt.subplots(
+            1, 3,
+            figsize=(2 * WIDE_FIGSIZE, HEIGHT_FIGSIZE),
+            sharex=True
+        )
 
-    panels = [
-        ("logical_error_rate", "Log. Err. Rate", True),
-        ("time_decode", "Time [s] (log)", False),
-        ("mem_decode_full_MB", "Memory [MB]", False),
-    ]
+        for ax, (column, ylabel, use_errorbars) in zip(axes, panels):
 
-    fig, axes = plt.subplots(
-        1, 3,
-        figsize=(2 * WIDE_FIGSIZE, HEIGHT_FIGSIZE),
-        sharex=True
-    )
+            for i, decoder in enumerate(decoders):
+                means, stds = [], []
 
-    for ax, (column, ylabel, use_errorbars) in zip(axes, panels):
+                for code in codes:
+                    subset = df[(df["code"] == code) & (df["decoder"] == decoder)]
 
-        for i, decoder in enumerate(decoders):
-            means, stds = [], []
+                    if not subset.empty:
+                        means.append(subset[column].values[0])
+                        stds.append(subset["std"].values[0] if use_errorbars else 0)
+                    else:
+                        means.append(0)
+                        stds.append(0)
 
-            for code in codes:
-                subset = df[(df["code"] == code) & (df["decoder"] == decoder)]
+                        xpos = x[codes.index(code)] + offsets[i]
+                        ax.text(
+                            xpos,
+                            0.08,                          
+                            "×",
+                            transform=ax.get_xaxis_transform(),
+                            color="red",
+                            fontsize=18,
+                            ha="center",
+                            va="top",
+                            fontweight="bold",
+                            clip_on=False,
+                        )
 
-                if not subset.empty:
-                    means.append(subset[column].values[0])
-                    stds.append(subset["std"].values[0] if use_errorbars else 0)
-                else:
-                    means.append(0)
-                    stds.append(0)
+                ax.bar(
+                    x + offsets[i],
+                    means,
+                    yerr=stds if use_errorbars else None,
+                    width=BAR_WIDTH,
+                    label=decoder,
+                    color=colors[i % len(colors)],
+                    edgecolor="black",
+                )
 
-                    xpos = x[codes.index(code)] + offsets[i]
-                    ax.text(
-                        xpos,
-                        0.08,                          
-                        "×",
-                        transform=ax.get_xaxis_transform(),
-                        color="red",
-                        fontsize=18,
-                        ha="center",
-                        va="top",
-                        fontweight="bold",
-                        clip_on=False,
-                    )
+            ax.set_ylabel(ylabel, fontsize=FONTSIZE, labelpad=2)
+            ax.grid(axis="y")
 
-            ax.bar(
-                x + offsets[i],
-                means,
-                yerr=stds if use_errorbars else None,
-                width=BAR_WIDTH,
-                label=decoder,
-                color=colors[i % len(colors)],
-                edgecolor="black",
+            ax.text(
+                1.0, 1.15,
+                "Lower is better ↓",
+                transform=ax.transAxes,
+                fontsize=FONTSIZE,
+                fontweight="bold",
+                color="blue",
+                va="top",
+                ha="right",
             )
 
-        ax.set_ylabel(ylabel, fontsize=FONTSIZE, labelpad=2)
-        ax.grid(axis="y")
+        # Titles and scales
+        axes[0].set_title("a) Effectiveness", loc="left",
+                        fontsize=FONTSIZE, fontweight="bold")
+        axes[1].set_title("b) Time", loc="left",
+                        fontsize=FONTSIZE, fontweight="bold")
+        axes[2].set_title("c) Memory", loc="left",
+                        fontsize=FONTSIZE, fontweight="bold")
 
-        ax.text(
-            1.0, 1.15,
-            "Lower is better ↓",
-            transform=ax.transAxes,
-            fontsize=FONTSIZE,
-            fontweight="bold",
-            color="blue",
-            va="top",
-            ha="right",
-        )
+        axes[1].set_yscale("log")
 
-    # Titles and scales
-    axes[0].set_title("a) Effectiveness", loc="left",
-                      fontsize=FONTSIZE, fontweight="bold")
-    axes[1].set_title("b) Time", loc="left",
-                      fontsize=FONTSIZE, fontweight="bold")
-    axes[2].set_title("c) Memory", loc="left",
-                      fontsize=FONTSIZE, fontweight="bold")
+        for ax in axes:
+            ax.set_xticks(x)
+            ax.set_xticklabels(codes, fontsize=FONTSIZE - 2, rotation=20, ha="right")
 
-    axes[1].set_yscale("log")
+        axes[-1].legend(loc="upper right", frameon=True)
 
-    for ax in axes:
-        ax.set_xticks(x)
-        ax.set_xticklabels(codes, fontsize=FONTSIZE - 2, rotation=20, ha="right")
+        # Figure styling & spacing
+        fig.patch.set_edgecolor("blue")
+        fig.patch.set_linewidth(3)
+        fig.patch.set_facecolor("none")
 
-    axes[-1].legend(loc="upper right", frameon=True)
-
-    # Figure styling & spacing
-    fig.patch.set_edgecolor("blue")
-    fig.patch.set_linewidth(3)
-    fig.patch.set_facecolor("none")
-
-    plt.subplots_adjust(left=0.06, right=0.99, bottom=0.25, wspace=0.25)
-    plt.savefig("data/decoder_general.pdf", format="pdf")
-    plt.close(fig)
+        plt.subplots_adjust(left=0.06, right=0.99, bottom=0.25, wspace=0.25)
+        if err_name == "modsi1000":
+            plt.savefig("data/decoder_general.pdf", format="pdf")
+        else:
+            plt.savefig("data/decoder_general_constant.pdf", format="pdf")
+        plt.close(fig)
 
 
 
@@ -2404,7 +2365,7 @@ if __name__ == '__main__':
     #generate_size_plot_two(size)
     #generate_connectivity_topology_plot(connectivity, topology)
     #generate_technology_plot(path)
-    #generate_dqc_plot(dqc)
+    generate_dqc_plot(dqc)
     #generate_swap_overhead_plot(df_grid, "Grid")
     #generate_swap_overhead_norm_plot(df_grid, "Grid")
     #generate_swap_overhead_norm_plot(df_hh, "Heavy-Hex")
