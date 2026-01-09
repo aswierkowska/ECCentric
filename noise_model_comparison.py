@@ -16,6 +16,7 @@ from datetime import datetime
 
 from noise import get_noise_model
 from noise.heron_noise import HeronNoise
+from noise.artificial_noise import ArtificialNoise
 from backends import QubitTracking
 
 
@@ -515,7 +516,7 @@ def compare_circuit_execution_with_ibm_cloud(
     ibm_job_results: Dict[str, int],
     circuit_index: int = 0,
     shots: int = 1024,
-    noise_type: str = "heron",
+    noise_types: List[str] = ["heron"],
     noise_param: float = 0.001,
     custom_backend=None,
     custom_noise_model=None,
@@ -527,7 +528,7 @@ def compare_circuit_execution_with_ibm_cloud(
     This function compares:
     1. Noiseless simulator
     2. IBM cloud real hardware results (provided)
-    3. Custom backend with provided noise model
+    3. Multiple custom backends with different noise models
     
     Parameters:
     -----------
@@ -539,10 +540,10 @@ def compare_circuit_execution_with_ibm_cloud(
         Index of this circuit in the batch (for reference)
     shots : int
         Number of shots used (for validation/reference)
-    noise_type : str
-        Type of noise model for custom backend
+    noise_types : List[str]
+        List of noise model types for custom backends (e.g., ["heron", "modsi1000", "pc3"])
     noise_param : float
-        Noise parameter for custom backend
+        Noise parameter for custom backends (e.g., p=0.001)
     custom_backend : BackendV2, optional
         Custom backend to use (defaults to FakeTorino architecture)
     custom_noise_model : NoiseModel, optional
@@ -608,9 +609,7 @@ def compare_circuit_execution_with_ibm_cloud(
         'circuit_index': circuit_index
     }
     
-    # 3. Custom Backend with Custom Noise Model
-    print(f"Running on custom backend with {noise_type} noise...")
-    
+    # 3. Custom Backends with Multiple Noise Models
     # Set up backend
     if custom_backend is None:
         custom_backend = fake_torino
@@ -618,40 +617,61 @@ def compare_circuit_execution_with_ibm_cloud(
     # Set up QubitTracking
     qt = QubitTracking(custom_backend, common_transpiled)
     
-    # Get noise model
-    if noise_type == "heron":
-        noise_model = HeronNoise.get_noise(qt, custom_backend)
-    else:
-        noise_model = get_noise_model(noise_type, qt, noise_param, custom_backend)
-    
-    if custom_noise_model is not None:
-        noise_model = custom_noise_model
-    
-    # Create Qiskit noise model approximation
-    qiskit_custom_noise = _create_qiskit_noise_approximation(noise_model, custom_backend, use_cz=True)
-    custom_simulator = AerSimulator(noise_model=qiskit_custom_noise)
-    
-    custom_job = custom_simulator.run(common_transpiled, shots=shots)
-    custom_result = custom_job.result()
-    
-    # Calculate fidelity relative to noiseless
-    custom_fidelity = _calculate_fidelity(
-        results['noiseless']['counts'],
-        custom_result.get_counts()
-    )
-    
-    results['custom_noise'] = {
-        'backend': f'Custom backend with {noise_type} noise',
-        'counts': custom_result.get_counts(),
-        'fidelity': custom_fidelity,
-        'execution_time': getattr(custom_result, 'time_taken', 'N/A'),
-        'noise_parameters': {
-            'sq_error': getattr(noise_model, 'sq', 'N/A'),
-            'tq_error': getattr(noise_model, 'tq', 'N/A'),
-            'measure_error': getattr(noise_model, 'measure', 'N/A'),
-            'reset_error': getattr(noise_model, 'reset', 'N/A')
+    # Run each noise model
+    for noise_type in noise_types:
+        # Extract noise type and parameter for ModSI1000 variants
+        if ':' in noise_type:
+            base_type, p_str = noise_type.split(':')
+            p_value = float(p_str)
+        else:
+            base_type = noise_type
+            p_value = noise_param
+            
+        print(f"Running on custom backend with {noise_type} noise...")
+        
+        # Get noise model
+        if base_type == "heron":
+            noise_model = HeronNoise.get_noise(qt, custom_backend)
+        elif base_type == "modsi1000":
+            noise_model = ArtificialNoise.modSI1000(p_value, qt)
+        elif base_type == "pc3":
+            noise_model = ArtificialNoise.PC3(p_value, qt)
+        else:
+            noise_model = get_noise_model(base_type, qt, p_value, custom_backend)
+        
+        if custom_noise_model is not None:
+            noise_model = custom_noise_model
+        
+        # Create Qiskit noise model approximation
+        qiskit_custom_noise = _create_qiskit_noise_approximation(noise_model, custom_backend, use_cz=True)
+        custom_simulator = AerSimulator(noise_model=qiskit_custom_noise)
+        
+        custom_job = custom_simulator.run(common_transpiled, shots=shots)
+        custom_result = custom_job.result()
+        
+        # Calculate fidelity relative to noiseless
+        custom_fidelity = _calculate_fidelity(
+            results['noiseless']['counts'],
+            custom_result.get_counts()
+        )
+        
+        # Store results with noise type key
+        results[f'{noise_type}_noise'] = {
+            'backend': f'Custom backend with {noise_type} noise',
+            'counts': custom_result.get_counts(),
+            'fidelity': custom_fidelity,
+            'execution_time': getattr(custom_result, 'time_taken', 'N/A'),
+            'noise_parameters': {
+                'sq_error': getattr(noise_model, 'sq', 'N/A'),
+                'tq_error': getattr(noise_model, 'tq', 'N/A'),
+                'measure_error': getattr(noise_model, 'measure', 'N/A'),
+                'reset_error': getattr(noise_model, 'reset', 'N/A')
+            }
         }
-    }
+    
+    # Maintain backward compatibility - if 'heron' is in noise_types, also set 'custom_noise'
+    if 'heron' in noise_types:
+        results['custom_noise'] = results['heron_noise']
     
     # Summary comparison
     results['comparison'] = _generate_comparison_summary_ibm(results)
@@ -1808,6 +1828,8 @@ def _process_full_experiment_results(
         'noiseless': {'fidelities': [], 'avg_fidelity': 0},
         'ibm_hardware': {'fidelities': [], 'avg_fidelity': 0},
         'heron_model': {'fidelities': [], 'avg_fidelity': 0},
+        'modsi1000_001_model': {'fidelities': [], 'avg_fidelity': 0},
+        'modsi1000_002_model': {'fidelities': [], 'avg_fidelity': 0},
         'job_metadata': ibm_results['metadata']
     }
     
@@ -1826,20 +1848,23 @@ def _process_full_experiment_results(
                     'noiseless': {'fidelities': []},
                     'ibm_hardware': {'fidelities': []},
                     'heron_model': {'fidelities': []},
+                    'modsi1000_001_model': {'fidelities': []},
+                    'modsi1000_002_model': {'fidelities': []},
                     'circuits': []
                 }
             
-            # Compare this circuit's execution (using Heron noise model)
+            # Compare this circuit's execution (using multiple noise models)
             comparison_results = compare_circuit_execution_with_ibm_cloud(
                 circuit=circuit,
                 ibm_job_results=ibm_counts,
                 circuit_index=i,
-                noise_type="heron",  # Always use Heron
+                noise_types=["heron", "modsi1000:0.001", "modsi1000:0.002"],
+                noise_param=0.001,
                 ibm_backend_name=backend_name
             )
             
             # Extract fidelities - use proper calculation
-            for backend_key in ['noiseless', 'ibm_hardware', 'custom_noise']:
+            for backend_key in ['noiseless', 'ibm_hardware', 'heron_noise', 'modsi1000:0.001_noise', 'modsi1000:0.002_noise']:
                 if backend_key in comparison_results:
                     if backend_key == 'noiseless':
                         # Noiseless is always 1.0 by definition
@@ -1854,7 +1879,7 @@ def _process_full_experiment_results(
                     # Debugging: print some details for first few circuits
                     if i < 3:
                         print(f"    {backend_key}: fidelity = {fidelity:.4f}")
-                        if backend_key in ['ibm_hardware', 'custom_noise']:
+                        if backend_key in ['ibm_hardware', 'heron_noise', 'modsi1000:0.001_noise', 'modsi1000:0.002_noise']:
                             # Show some sample counts
                             counts = comparison_results[backend_key]['counts']
                             normalized = _normalize_counts_format(counts)
@@ -1865,7 +1890,14 @@ def _process_full_experiment_results(
                             print(f"      Normalized: {[(outcome, count/sum(normalized.values())) for outcome, count in top_normalized]}")
                     
                     # Map to our naming convention
-                    result_key = 'heron_model' if backend_key == 'custom_noise' else backend_key
+                    if backend_key == 'heron_noise':
+                        result_key = 'heron_model'
+                    elif backend_key == 'modsi1000:0.001_noise':
+                        result_key = 'modsi1000_001_model'
+                    elif backend_key == 'modsi1000:0.002_noise':
+                        result_key = 'modsi1000_002_model'
+                    else:
+                        result_key = backend_key
                     
                     results_by_qubit_size[qubit_size][result_key]['fidelities'].append(fidelity)
                     overall_results[result_key]['fidelities'].append(fidelity)
@@ -1894,7 +1926,7 @@ def _process_full_experiment_results(
         print(f"{'Backend':<15} {'Avg Fidelity':<12} {'Std Dev':<10} {'Circuits'}")
         print(f"{'-'*50}")
         
-        for backend_key in ['noiseless', 'ibm_hardware', 'heron_model']:
+        for backend_key in ['noiseless', 'ibm_hardware', 'heron_model', 'modsi1000_001_model', 'modsi1000_002_model']:
             fidelities = results[backend_key]['fidelities']
             if fidelities:
                 avg_fid = np.mean(fidelities)
@@ -1905,41 +1937,55 @@ def _process_full_experiment_results(
                 backend_name_map = {
                     'noiseless': 'Noiseless',
                     'ibm_hardware': f'IBM Hardware',
-                    'heron_model': 'Heron Model'
+                    'heron_model': 'Heron Model',
+                    'modsi1000_001_model': 'ModSI1000 (p=0.001)',
+                    'modsi1000_002_model': 'ModSI1000 (p=0.002)'
                 }
                 
-                print(f"{backend_name_map[backend_key]:<15} {avg_fid:<12.4f} {std_fid:<10.4f} {len(fidelities)}")
+                print(f"{backend_name_map[backend_key]:<19} {avg_fid:<12.4f} {std_fid:<10.4f} {len(fidelities)}")
     
     # Overall statistics
     print(f"\n{'='*70}")
     print(f"OVERALL STATISTICS (ALL 60 CIRCUITS)")
     print(f"{'='*70}")
     
-    for backend_key in ['noiseless', 'ibm_hardware', 'heron_model']:
+    for backend_key in ['noiseless', 'ibm_hardware', 'heron_model', 'modsi1000_001_model', 'modsi1000_002_model']:
         fidelities = overall_results[backend_key]['fidelities']
         if fidelities:
             overall_results[backend_key]['avg_fidelity'] = np.mean(fidelities)
             overall_results[backend_key]['std_fidelity'] = np.std(fidelities)
     
     # Model performance analysis
-    if (overall_results['ibm_hardware']['fidelities'] and 
-        overall_results['heron_model']['fidelities']):
-        
+    if overall_results['ibm_hardware']['fidelities']:
         ibm_avg = overall_results['ibm_hardware']['avg_fidelity']
-        heron_avg = overall_results['heron_model']['avg_fidelity']
+        ibm_std = overall_results['ibm_hardware']['std_fidelity']
         
         print(f"\nMODEL PERFORMANCE ANALYSIS:")
-        print(f"  IBM Hardware: {ibm_avg:.4f} ± {overall_results['ibm_hardware']['std_fidelity']:.4f}")
-        print(f"  Heron Model:  {heron_avg:.4f} ± {overall_results['heron_model']['std_fidelity']:.4f}")
-        print(f"  Difference:   {abs(heron_avg - ibm_avg):.4f}")
-        print(f"  Rel. Error:   {abs(heron_avg - ibm_avg) / ibm_avg * 100:.1f}%")
+        print(f"  IBM Hardware: {ibm_avg:.4f} ± {ibm_std:.4f}")
         
-        if heron_avg > ibm_avg:
-            print(f"  → Heron model OVERESTIMATES hardware performance")
-        elif heron_avg < ibm_avg:
-            print(f"  → Heron model UNDERESTIMATES hardware performance")
-        else:
-            print(f"  → Heron model matches hardware performance!")
+        # Compare each noise model against IBM hardware
+        for model_key in ['heron_model', 'modsi1000_001_model', 'modsi1000_002_model']:
+            if overall_results[model_key]['fidelities']:
+                model_avg = overall_results[model_key]['avg_fidelity']
+                model_std = overall_results[model_key]['std_fidelity']
+                diff = model_avg - ibm_avg
+                rel_error = abs(diff) / ibm_avg * 100
+                
+                model_names = {
+                    'heron_model': 'Heron Model',
+                    'modsi1000_001_model': 'ModSI1000 (p=0.001)',
+                    'modsi1000_002_model': 'ModSI1000 (p=0.002)'
+                }
+                
+                print(f"  {model_names[model_key]}: {model_avg:.4f} ± {model_std:.4f}")
+                print(f"    Difference: {diff:+.4f} ({rel_error:.1f}% error)")
+                
+                if diff > 0.01:
+                    print(f"    → {model_names[model_key]} OVERESTIMATES hardware performance")
+                elif diff < -0.01:
+                    print(f"    → {model_names[model_key]} UNDERESTIMATES hardware performance")
+                else:
+                    print(f"    → {model_names[model_key]} closely matches hardware performance!")
     
     return {
         'results_by_qubit_size': results_by_qubit_size,
@@ -1996,7 +2042,7 @@ def _recreate_experimental_circuits(
 
 
 def plot_experimental_results(results: Dict[str, Any], save_path: str = None) -> str:
-    """Plot the experimental results comparing IBM hardware vs Heron model."""
+    """Plot the experimental results comparing IBM hardware vs all noise models."""
     
     if 'results_by_qubit_size' not in results:
         print("No qubit-wise results found for plotting")
@@ -2004,96 +2050,140 @@ def plot_experimental_results(results: Dict[str, Any], save_path: str = None) ->
     
     import matplotlib.pyplot as plt
     import numpy as np
+    import seaborn as sns
     
-    # Extract data for plotting
-    qubit_sizes = sorted(results['results_by_qubit_size'].keys())
+    # Apply the same rcParams settings as in plots/utils.py
+    tex_fonts = {
+        "font.family": "serif",
+        "axes.labelsize": 12,
+        "font.size": 12,
+        "legend.fontsize": 10,
+        "xtick.labelsize": 10,
+        "ytick.labelsize": 10,
+        "axes.titlesize": 10,
+        "lines.linewidth": 2,
+        "lines.markersize": 6,
+        "lines.markeredgewidth": 1.5,
+        "lines.markeredgecolor": "black",
+        "errorbar.capsize": 3,
+    }
+    plt.rcParams.update(tex_fonts)
+    
+    # Extract data for plotting (only qubits 3-7)
+    qubit_sizes = sorted([q for q in results['results_by_qubit_size'].keys() if q >= 3])
+    
+    # Model configurations using seaborn pastel palette like in plots.py
+    palette = sns.color_palette("pastel", n_colors=4)
+    models = {
+        'ibm_hardware': {'label': 'IBM Torino', 'color': palette[0], 'alpha': 1.0},
+        'heron_model': {'label': 'Heron Model', 'color': palette[1], 'alpha': 1.0},
+        'modsi1000_001_model': {'label': 'SI1000 (p=0.001)', 'color': palette[2], 'alpha': 1.0},
+        'modsi1000_002_model': {'label': 'SI1000 (p=0.002)', 'color': palette[3], 'alpha': 1.0}
+    }
     
     # Prepare data arrays
-    ibm_means = []
-    ibm_stds = []
-    heron_means = []
-    heron_stds = []
+    data = {model: {'means': [], 'stds': []} for model in models}
     
     for qubits in qubit_sizes:
-        data = results['results_by_qubit_size'][qubits]
+        qubit_data = results['results_by_qubit_size'][qubits]
         
-        if 'ibm_hardware' in data and data['ibm_hardware']['fidelities']:
-            ibm_means.append(data['ibm_hardware'].get('avg_fidelity', 0))
-            ibm_stds.append(data['ibm_hardware'].get('std_fidelity', 0))
-        else:
-            ibm_means.append(0)
-            ibm_stds.append(0)
-            
-        if 'heron_model' in data and data['heron_model']['fidelities']:
-            heron_means.append(data['heron_model'].get('avg_fidelity', 0))
-            heron_stds.append(data['heron_model'].get('std_fidelity', 0))
-        else:
-            heron_means.append(0)
-            heron_stds.append(0)
+        for model_key in models:
+            if model_key in qubit_data and qubit_data[model_key]['fidelities']:
+                data[model_key]['means'].append(qubit_data[model_key].get('avg_fidelity', 0))
+                data[model_key]['stds'].append(qubit_data[model_key].get('std_fidelity', 0))
+            else:
+                data[model_key]['means'].append(0)
+                data[model_key]['stds'].append(0)
     
-    # Create the plot
-    fig, ax = plt.subplots(figsize=(12, 8))
+    # Create the plot with the same dimensions as their plots
+    fig, ax = plt.subplots(figsize=(5, 2.4))  # Using their HEIGHT_FIGSIZE * 2
+    
+    # Add blue border around the entire figure
+    fig.patch.set_edgecolor('blue')
+    fig.patch.set_linewidth(3)
     
     x = np.array(qubit_sizes)
-    width = 0.35
+    n_models = len(models)
+    bar_width = 0.15  # Match their BAR_WIDTH style
     
-    # Create bars
-    bars1 = ax.bar(x - width/2, ibm_means, width, yerr=ibm_stds, 
-                   label='IBM Hardware', alpha=0.8, capsize=5,
-                   color='#1f77b4')  # Blue
-    bars2 = ax.bar(x + width/2, heron_means, width, yerr=heron_stds, 
-                   label='Heron Model', alpha=0.8, capsize=5,
-                   color='#ff7f0e')  # Orange
+    # Create bars for each model with their styling
+    bars = {}
+    for i, (model_key, config) in enumerate(models.items()):
+        offset = (i - (n_models-1)/2) * bar_width
+        bars[model_key] = ax.bar(x + offset, data[model_key]['means'], bar_width, 
+                                yerr=data[model_key]['stds'], 
+                                label=config['label'], 
+                                alpha=config['alpha'], 
+                                capsize=3,
+                                color=config['color'],
+                                edgecolor='black',  # Black edges like their plots
+                                linewidth=1)
     
-    # Customize the plot
-    ax.set_xlabel('Number of Qubits', fontsize=12)
+    # Customize the plot to match their style
+    ax.set_xlabel('Circuit Width', fontsize=12)
     ax.set_ylabel('Fidelity', fontsize=12)
-    ax.set_title('IBM Hardware vs Heron Noise Model\nFidelity Comparison (60 circuits, depth 100)', 
-                 fontsize=14, fontweight='bold')
+    ax.set_title('Noise Comparison', 
+                 fontsize=12, fontweight='bold', loc='left')  # Left-aligned title like theirs
     ax.set_xticks(x)
     ax.set_xticklabels(qubit_sizes)
-    ax.legend(fontsize=11)
-    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=10, loc='lower left', ncol=2)
+    ax.grid(axis='y', alpha=0.3)  # Only y-grid like their plots
+    ax.set_axisbelow(True)  # Grid behind bars
     ax.set_ylim(0, 1.0)
     
-    # Add value labels on bars
-    def add_value_labels(bars, means, stds):
-        for bar, mean, std in zip(bars, means, stds):
-            height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2., height + std + 0.01,
-                   f'{mean:.3f}±{std:.3f}',
-                   ha='center', va='bottom', fontsize=9)
+    # Ensure axes spines are black like their plots
+    for spine in ax.spines.values():
+        spine.set_edgecolor('black')
+        spine.set_linewidth(1)
     
-    add_value_labels(bars1, ibm_means, ibm_stds)
-    add_value_labels(bars2, heron_means, heron_stds)
+    # Add value labels on bars (show values for all models)
+    #def add_value_labels(bars, means, stds, model_name):
+    #    for bar, mean, std in zip(bars, means, stds):
+    #        if mean > 0:  # Only add label if there's data
+    #            height = bar.get_height()
+    #            # Use smaller font and different styling for different models
+    #            if model_name == 'IBM Hardware':
+    #                fontsize = 8
+    #                fontweight = 'bold'
+    #                color = 'black'
+    #            else:
+    #                fontsize = 7
+    #                fontweight = 'normal'  
+    #                color = 'darkblue'
+    #            
+    #            ax.text(bar.get_x() + bar.get_width()/2., height + std + 0.005,
+    #                   f'{mean:.3f}',
+    #                   ha='center', va='bottom', fontsize=fontsize, 
+    #                   fontweight=fontweight, color=color)
+    
+    #for model_key, config in models.items():
+    #    add_value_labels(bars[model_key], data[model_key]['means'], 
+    #                    data[model_key]['stds'], config['label'])
     
     # Add overall statistics as text
-    if 'overall_results' in results:
-        overall = results['overall_results']
-        if ('ibm_hardware' in overall and 'heron_model' in overall and 
-            overall['ibm_hardware']['fidelities'] and overall['heron_model']['fidelities']):
-            
-            ibm_overall = overall['ibm_hardware']['avg_fidelity']
-            heron_overall = overall['heron_model']['avg_fidelity']
-            
-            textstr = f'Overall Statistics:\n'
-            textstr += f'IBM Hardware: {ibm_overall:.4f} ± {overall["ibm_hardware"]["std_fidelity"]:.4f}\n'
-            textstr += f'Heron Model: {heron_overall:.4f} ± {overall["heron_model"]["std_fidelity"]:.4f}\n'
-            textstr += f'Difference: {abs(heron_overall - ibm_overall):.4f}'
-            
-            # Add text box
-            props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-            ax.text(0.02, 0.98, textstr, transform=ax.transAxes, fontsize=10,
-                   verticalalignment='top', bbox=props)
+    #if 'overall_results' in results:
+    #    overall = results['overall_results']
+    #    textstr = 'Overall Fidelity (All 60 circuits):\\n'
+    #    
+    #    for model_key, config in models.items():
+    #        if (model_key in overall and overall[model_key]['fidelities']):
+    #            avg = overall[model_key]['avg_fidelity']
+    #            std = overall[model_key]['std_fidelity']
+    #            textstr += f'{config["label"]}: {avg:.3f} ± {std:.3f}\\n'
+    #    
+    #    # Add text box
+    #    props = dict(boxstyle='round', facecolor='lightblue', alpha=0.8)
+    #    ax.text(0.02, 0.98, textstr, transform=ax.transAxes, fontsize=9,
+    #           verticalalignment='top', bbox=props)
     
     plt.tight_layout()
     
     # Save plot
     if save_path is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        save_path = f"experimental_results_{timestamp}.png"
+        save_path = f"experimental_results_multi_model_{timestamp}.pdf"
     
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.savefig(save_path, dpi=300, bbox_inches='tight', format='pdf')
     plt.show()
     
     print(f"Plot saved to: {save_path}")
